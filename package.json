@@ -15,9 +15,13 @@
     "clean": "pnpm -r run clean",
     "dev:patch": "node scripts/dev-patch.mjs",
     "dev:desktop-snippet": "node scripts/desktop-snippet.mjs",
+    "dev:desktop-composition": "node scripts/desktop-composition.mjs",
+    "dev:desktop-prompt": "node scripts/desktop-prompt.mjs",
+    "dev:desktop-local-plugin": "node scripts/desktop-local-plugin.mjs",
     "dev:agent-preset": "node scripts/gen-agent-preset.mjs",
     "check:manifests": "node scripts/check-manifests.mjs",
-    "check": "pnpm run check:manifests && pnpm run typecheck && pnpm run build && pnpm run test"
+    "check": "pnpm run check:manifests && pnpm run typecheck && pnpm run build && pnpm run test",
+    "dev:desktop-session-prompt": "node scripts/desktop-session-prompt.mjs"
   },
   "devDependencies": {
     "@types/node": "catalog:",

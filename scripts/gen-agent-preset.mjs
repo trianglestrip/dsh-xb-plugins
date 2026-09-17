@@ -13,13 +13,24 @@
  * The preset is generated, never hand-edited. It takes the shipped `standard`
  * composition — with `include` unsupported in presets, a usable preset must be a
  * whole agent composition, so copying upstream is unavoidable and regenerating
- * is how drift is avoided — and replaces only the `persona` row. The text itself
- * comes from `packages/xiaobo-persona`, so the plugin and the preset can never
- * disagree about what Xiaobo says.
+ * is how drift is avoided — and replaces only the `persona` row.
+ *
+ * Two modes, one per no-publish route (see `docs/plugins.md` §6):
+ * - `--persona preset` (default): the persona row carries the whole Xiaobo
+ *   policy, so the preset alone delivers the prompt. Needs no profile patch.
+ * - `--persona plugin`: the persona row carries **no** text, because
+ *   `scripts/desktop-snippet.mjs --write` mounted `dsh-xb-xiaobo-persona` in the
+ *   profile and its six sections carry it at their own orders. Without an empty
+ *   scoped persona, the shipped `standard` prefix would prepend a generic
+ *   "You are a coding agent…" line and both channels would send the text twice.
+ *
+ * Either way the text comes from `packages/xiaobo-persona`, so the plugin and the
+ * preset can never disagree about what Xiaobo says.
  *
  * Usage:
  *   node scripts/gen-agent-preset.mjs [--runtime <dir>] [--home <dir>]
- *                                     [--id <name>] [--locale en|zh] [--dry-run]
+ *                                     [--id <name>] [--locale en|zh]
+ *                                     [--persona preset|plugin] [--dry-run]
  *
  * Defaults: runtime from `$DSH_HOME/profiles/desktop/desktop-runtime-state.json`,
  * home `$DSH_HOME` (or `~/.dsh`), id `xiaobo`, locale `en`.
@@ -33,9 +44,9 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { deriveDesktopRuntime, desktopDshDir, resolveDshHome } from './shared/desktop-runtime.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(import.meta.url)
@@ -48,7 +59,7 @@ function die(message) {
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
-  const options = { runtime: undefined, home: undefined, id: 'xiaobo', locale: 'en', dryRun: false }
+  const options = { runtime: undefined, home: undefined, id: 'xiaobo', locale: 'en', persona: 'preset', dryRun: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--dry-run') { options.dryRun = true; continue }
@@ -56,30 +67,40 @@ function parseArgs(argv) {
     if (arg === '--home') { options.home = argv[++i]; continue }
     if (arg === '--id') { options.id = argv[++i]; continue }
     if (arg === '--locale') { options.locale = argv[++i]; continue }
+    if (arg === '--persona') { options.persona = argv[++i]; continue }
     die(`unknown option ${arg}`)
   }
   if (options.locale !== 'en' && options.locale !== 'zh') die('--locale takes en or zh')
+  if (options.persona !== 'preset' && options.persona !== 'plugin') die('--persona takes preset or plugin')
   return options
 }
 
 const args = parseArgs(process.argv.slice(2))
-const dshHome = resolve(args.home ?? (process.env.DSH_HOME?.trim() ? process.env.DSH_HOME : join(homedir(), '.dsh')))
+const dshHome = resolveDshHome(args.home)
+
+// ── consistency guard: the two no-publish routes are mutually exclusive ──
+//
+// A profile patch that mounts the capability row plus a text-carrying preset
+// renders every fragment twice; the reverse (an empty persona with no mounted
+// row) renders none at all. Both are silent in the app, so say it here.
+const profilePatch = join(dshHome, 'profiles', 'desktop', 'cordis.patch.yml')
+const mountsCapability = existsSync(profilePatch) && readFileSync(profilePatch, 'utf8').includes('id: xiaobo-persona')
+if (args.persona === 'plugin' && !mountsCapability) {
+  console.warn('warning: --persona plugin leaves the persona empty, but the Desktop profile patch mounts no')
+  console.warn('         xiaobo-persona row — the session would get no Xiaobo text at all.')
+  console.warn('         run `pnpm run dev:desktop-snippet -- --write` first (or use --persona preset).')
+}
+if (args.persona !== 'plugin' && mountsCapability) {
+  console.warn('warning: the Desktop profile patch mounts xiaobo-persona, so a text-carrying preset renders')
+  console.warn('         every fragment twice. Use --persona plugin, or remove the block between the')
+  console.warn("         '# >>> dsh-xb-plugins' and '# <<< dsh-xb-plugins' markers from the profile patch.")
+}
 
 // ── locate the Desktop runtime (it owns the node modules every preset row names) ──
 
-function deriveRuntime() {
-  if (args.runtime !== undefined) return resolve(args.runtime)
-  const statePath = join(dshHome, 'profiles', 'desktop', 'desktop-runtime-state.json')
-  if (!existsSync(statePath)) return undefined
-  const link = JSON.parse(readFileSync(statePath, 'utf8')).links?.[0]?.target
-  if (typeof link !== 'string') return undefined
-  // <runtime>/dsh/node_modules/<pkg> → <runtime>
-  return resolve(link, '..', '..', '..', '..')
-}
-
-const runtime = deriveRuntime()
+const runtime = deriveDesktopRuntime(dshHome, args.runtime)
 if (runtime === undefined) die('cannot derive the Desktop runtime; pass --runtime <dir>')
-const dshDir = join(runtime, 'dsh')
+const dshDir = desktopDshDir(runtime)
 const shippedRoot = join(dshDir, 'node_modules', '@deepseek-ai', 'dsh-agent-presets', 'presets')
 const source = join(shippedRoot, 'standard', 'agent.cordis.yml')
 if (!existsSync(source)) die(`no shipped 'standard' composition at ${source} (pass --runtime <dir>)`)
@@ -93,8 +114,11 @@ const { renderFragment, IDENTITY, DOMAIN_POLICY, SAFETY_REDLINES, INTERACTION_NO
 
 const blocks = [IDENTITY, DOMAIN_POLICY, SAFETY_REDLINES, INTERACTION_NORMS, OBJECTIVITY]
   .map(fragment => renderFragment(fragment, args.locale))
-const prefix = blocks.join('\n\n')
-const suffix = `${renderFragment(PRODUCT_HELP, args.locale)}\n\nYour working directory is {{cwd}}.`
+const pluginMode = args.persona === 'plugin'
+const prefix = pluginMode ? '' : blocks.join('\n\n')
+const suffix = pluginMode
+  ? 'Your working directory is {{cwd}}.'
+  : `${renderFragment(PRODUCT_HELP, args.locale)}\n\nYour working directory is {{cwd}}.`
 
 // ── replace the persona row, leaving every other upstream row byte-identical ──
 
@@ -110,23 +134,39 @@ const commented = composition.lastIndexOf('# The preset\'s own persona', rowStar
 const start = commented !== -1 && rowStart - commented < 400 ? commented : rowStart
 const next = composition.indexOf('\n- ', rowStart)
 if (next === -1) die('cannot find the row after persona')
+
+/** Render one persona text, or `''` when the text is absent (which shadows the deployment slot away). */
+const scalar = (key, text) => text === ''
+  ? [`    ${key}: ''`]
+  : [`    ${key}: |-`, indent(text)]
+
 const personaRow = [
   '# Generated by scripts/gen-agent-preset.mjs — edit packages/xiaobo-persona, not this file.',
-  '# The persona carries the whole Xiaobo policy: order 0, so it precedes every',
-  '# first-party section and lands ahead of all tool guidance, matching the product.',
-  "- id: persona",
+  ...(pluginMode
+    ? [
+      '# Persona text is empty on purpose: the Xiaobo policy is registered by the',
+      '# dsh-xb-xiaobo-persona sections mounted in the Desktop profile',
+      '# (scripts/desktop-snippet.mjs --write). An empty scoped persona shadows the',
+      '# shipped standard prefix away rather than restoring it, so no generic',
+      '# "coding agent" line precedes the Xiaobo identity section.',
+    ]
+    : [
+      '# The persona carries the whole Xiaobo policy: order 0, so it precedes every',
+      '# first-party section and lands ahead of all tool guidance, matching the product.',
+    ]),
+  '- id: persona',
   "  name: '@deepseek-ai/dsh-persona'",
   '  config:',
-  '    prefix: |-',
-  indent(prefix),
-  '    suffix: |-',
-  indent(suffix),
+  ...scalar('prefix', prefix),
+  ...scalar('suffix', suffix),
 ].join('\n')
 const generated = composition.slice(0, start) + personaRow + composition.slice(next)
 
 const presetMeta = [
   'name: 小博',
-  'description: 电力工程厂站设计 Agent：小博人设 + 接口调用约束 + 安全红线 + 交互规范 + 专业客观性。',
+  pluginMode
+    ? 'description: 小博（组合插件版）：persona 留空，文本由 profile 挂载的 dsh-xb-xiaobo-persona 六个 section 提供。'
+    : 'description: 电力工程厂站设计 Agent：小博人设 + 接口调用约束 + 安全红线 + 交互规范 + 专业客观性。',
   'order: 0',
   '',
 ].join('\n')
@@ -187,7 +227,7 @@ if (problems.length > 0) die(`generated composition would be reported broken:\n-
 
 if (args.dryRun) {
   console.log(`--dry-run: would write ${destination}`)
-  console.log(`prefix ${prefix.length} chars, suffix ${suffix.length} chars, rows ${parsed.length}`)
+  console.log(`persona ${args.persona}, prefix ${prefix.length} chars, suffix ${suffix.length} chars, rows ${parsed.length}`)
   process.exit(0)
 }
 
@@ -196,10 +236,15 @@ writeFileSync(join(destination, 'agent.cordis.yml'), generated, 'utf8')
 writeFileSync(join(destination, 'preset.yml'), presetMeta, 'utf8')
 
 console.log(`wrote ${destination}`)
-console.log(`  preset.yml, agent.cordis.yml (${parsed.length} rows, locale ${args.locale})`)
+console.log(`  preset.yml, agent.cordis.yml (${parsed.length} rows, persona ${args.persona}, locale ${args.locale})`)
 console.log(`  runtime: ${runtime}`)
 console.log('')
-console.log('The preset needs no install and no patch: it appears in the mode picker.')
+if (pluginMode) {
+  console.log('组合插件版：persona 留空，文本由 profile patch 里挂载的 dsh-xb-xiaobo-persona 提供。')
+  console.log('配套命令（已执行过就无需重跑）：pnpm run dev:desktop-snippet -- --write')
+} else {
+  console.log('The preset needs no install and no patch: it appears in the mode picker.')
+}
 console.log('To make it the default for new sessions, write the user setting (the same')
 console.log('namespace the settings UI uses) instead of touching the profile composition:')
 console.log('')

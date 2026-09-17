@@ -1,0 +1,32 @@
+# The Xiaobo Desktop-only deployment layer.
+#
+# `deploy/cordis.patch.yml` carries policy that holds wherever Xiaobo runs. This
+# file carries policy that only makes sense inside the Desktop application, so a
+# Web or CLI profile that mounts the same bundles keeps the stock behavior.
+#
+# `scripts/desktop-snippet.mjs --write` projects this file, verbatim, into the
+# Desktop profile's own `cordis.patch.yml` — Desktop reads no overlay, so that
+# patch file is the only layer a deployment controls.
+
+# The product's agent is not a choice. Every shipped mode now carries an empty
+# persona prefix (the product build clears them), so the identity comes from the
+# Xiaobo prompt sections alone and a mode is just a workflow. Hiding the picker
+# keeps a session from looking like a choice of identities; a person can still
+# re-enable selection in settings, which is why this is the settings base rather
+# than a client change.
+- id: agent-presets
+  config:
+    default: standard
+    modeSelectionEnabled: false
+
+# The model-visible surface text names the product the person is looking at.
+# Desktop is the only surface that registers `app:web-surface`, so the name is a
+# Desktop deployment value. A patch replaces a row's whole config, so every key
+# the Web runtime row carries is restated with its original expression.
+- id: web-runtime
+  config:
+    productName: Xiaobo
+    openBrowser: !!js ctx.webStartup.openBrowser
+    printUrl: true
+    surfaceContext: true
+    trustedHosts: !!js ctx.webStartup.trustedHosts
