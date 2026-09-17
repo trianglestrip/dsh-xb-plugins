@@ -48,16 +48,23 @@ packages/<name>/
 - `apply(ctx, config)` — registers capabilities; all registrations are effects and clean up
   on unload.
 
+## Docs
+
+`docs/` holds the Chinese design and analysis documents that justify the packages — the prompt
+inventory and section placement (`docs/xiaobo-prompt.md`), the DocManager refactor
+(`docs/docmanager.md`). They are the reference for *why* a section sits at a given order; keep
+them in sync when placement changes, and cross-link rather than duplicating a fact in both.
+
 ## File and comment style
 
-- **English** for identifiers, file names, comments, commit messages, and README bodies.
-- One-sentence JSDoc on every exported symbol: what it is, not how it works. Document the
-  *why* only where a reader would otherwise make a wrong assumption (e.g. why a section is
-  not a context).
+- **English** for identifiers, file names, code comments, commit messages, and `README` bodies.
+- **Chinese** for `docs/*.md` analysis documents and for user-facing prompt payloads (the `zh`
+  fragment locale). Not for code comments.
+- One-sentence JSDoc on every exported symbol: what it is, not how it works. Document the *why*
+  only where a reader would otherwise make a wrong assumption (e.g. why a section is not a
+  context).
 - Tests assert observable contracts (registered names, assembly order, rendered text), not
   implementation details.
-- Chinese is allowed in user-facing prompt payloads (the `zh` fragment locale) and in
-  docs translated for product stakeholders; it is not allowed in code comments.
 
 ## Commands
 

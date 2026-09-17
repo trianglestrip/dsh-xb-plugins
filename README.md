@@ -14,6 +14,16 @@ Each package under `packages/` is an independently installable **dsh bundle**: i
 | [`dsh-xb-xiaobo-persona`](packages/xiaobo-persona) | Xiaobo identity + domain/safety/interaction policy prompt sections | v0.1.0 |
 | *(next)* `dsh-xb-docmanager` | DocManager knowledge scope as runtime context | planned |
 
+## Design docs
+
+Background and placement rationale behind the packages, written before the code:
+
+- [`docs/xiaobo-prompt.md`](docs/xiaobo-prompt.md) — the Xiaobo prompt inventory, the fragment plan,
+  and where each fragment lands in the DeepSeek Harness turn flow (`systemPrompt.section()` orders).
+- [`docs/docmanager.md`](docs/docmanager.md) — the DocManager refactor: what stays (local knowledge
+  data), what moves (MCP tool surface + `MCP_SERVERS` section), and what goes away (the second
+  system prompt and the forced first-turn tool choice).
+
 ## Toolchain
 
 | Tool | Version | Source |
