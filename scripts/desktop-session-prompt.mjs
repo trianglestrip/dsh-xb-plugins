@@ -25,11 +25,12 @@ function die(message) {
 
 /** @param {string[]} argv */
 function parseArgs(argv) {
-  const options = { home: undefined, session: undefined, cwd: undefined, grep: false, full: false }
+  const options = { home: undefined, session: undefined, cwd: undefined, grep: false, full: false, allowMissing: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--grep') { options.grep = true; continue }
     if (arg === '--full') { options.full = true; continue }
+    if (arg === '--allow-missing') { options.allowMissing = true; continue }
     if (arg === '--home') { options.home = argv[++i]; continue }
     if (arg === '--session') { options.session = argv[++i]; continue }
     if (arg === '--cwd') { options.cwd = argv[++i]; continue }
@@ -41,7 +42,13 @@ function parseArgs(argv) {
 const args = parseArgs(process.argv.slice(2))
 const dshHome = resolveDshHome(args.home)
 const sessionsRoot = join(dshHome, 'sessions')
-if (!existsSync(sessionsRoot)) die(`no session store at ${sessionsRoot}; run a session first`)
+if (!existsSync(sessionsRoot)) {
+  if (args.allowMissing) {
+    console.log(`skip     : no session store at ${sessionsRoot}`)
+    process.exit(0)
+  }
+  die(`no session store at ${sessionsRoot}; run a session first`)
+}
 
 /** Newest session log, or the one the caller named. */
 function findLog() {
@@ -55,7 +62,13 @@ function findLog() {
   const logs = sessions.flatMap((dir) => readdirSync(dir)
     .filter((name) => name.endsWith('.jsonl.zstd'))
     .map((name) => join(dir, name)))
-  if (logs.length === 0) die('no session log found')
+  if (logs.length === 0) {
+    if (args.allowMissing) {
+      console.log('skip     : no session log matches')
+      process.exit(0)
+    }
+    die('no session log found')
+  }
   return logs.sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0]
 }
 

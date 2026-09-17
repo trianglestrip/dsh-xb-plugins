@@ -21,7 +21,9 @@
     "dev:agent-preset": "node scripts/gen-agent-preset.mjs",
     "check:manifests": "node scripts/check-manifests.mjs",
     "check": "pnpm run check:manifests && pnpm run typecheck && pnpm run build && pnpm run test",
-    "dev:desktop-session-prompt": "node scripts/desktop-session-prompt.mjs"
+    "dev:desktop-session-prompt": "node scripts/desktop-session-prompt.mjs",
+    "dev:desktop-ui": "node scripts/desktop-ui.mjs",
+    "dev:desktop-verify": "node scripts/desktop-verify.mjs"
   },
   "devDependencies": {
     "@types/node": "catalog:",

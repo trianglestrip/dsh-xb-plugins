@@ -80,3 +80,19 @@ pnpm dsh --profile xb                   # 启动；persona 对每个会话生效
 不需要启动 harness 的更快契约检查在
 `packages/xiaobo-persona/tests/integration.spec.ts`：它挂载**真实的** `@deepseek-ai/dsh-system-prompt`
 registry，断言 section 装配顺序与渲染文本。
+
+## 四条验证（一条命令跑完）
+
+```sh
+pnpm run dev:desktop-verify -- --runtime <harness>/.desktop-build/targets/win-x64 \
+  --expect-title "BCPD AI" --require-all
+```
+
+| 子检查 | 单独命令 | 断言什么 |
+|---|---|---|
+| 组合 | `dev:desktop-composition` | bundle 层序、`system-prompt.includeHarnessIdentity`、`xiaobo-persona` 可解析 |
+| 提示词 | `dev:desktop-prompt` | 六段各一次、首句、无竞争身份行 |
+| 会话日志 | `dev:desktop-session-prompt` | 真实会话记录里六段各 1 次、竞争身份 0（多帧 zstd 逐帧解压） |
+| 界面 | `dev:desktop-ui` | `document.title` 含品牌名（app 需带 `--remote-debugging-port=9222`） |
+
+打包与目标机落位的完整步骤、以及本机踩过的 7 个坑见 [`../docs/build-runbook.md`](../docs/build-runbook.md)。

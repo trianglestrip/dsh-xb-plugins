@@ -16,6 +16,11 @@
 # than a client change.
 - id: agent-presets
   config:
+    # 当前状态：仍是内置的 `standard` 组合（工具集尚未 CAD 化），因此
+    # `includeShippedRoot` 保持默认 true —— 否则 roster 里没有任何 preset，
+    # 新会话无法创建。等 packages/xiaobo-desktop 的自有组合就位后，改成：
+    #   includeShippedRoot: false
+    #   default: xiaobo
     default: standard
     modeSelectionEnabled: false
 

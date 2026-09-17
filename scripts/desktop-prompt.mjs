@@ -57,12 +57,21 @@ const byId = new Map(rows.filter((row) => typeof row.id === 'string').map((row) 
 
 // ── which preset will a new session run? user setting first, then the row ──
 
+// Mirror the roster's own selection policy: the registered base comes from the
+// row config, and a user document may override it — but while selection is
+// disabled the deployment default governs and the saved user default is ignored.
 const settingsPath = join(dshHome, 'settings.yaml')
-let presetId = byId.get('agent-presets')?.config?.default
+const presetRow = byId.get('agent-presets')?.config ?? {}
+const base = { default: presetRow.default, modeSelectionEnabled: presetRow.modeSelectionEnabled ?? true }
+let policy = base
 if (existsSync(settingsPath)) {
-  const settings = yaml.load(readFileSync(settingsPath, 'utf8'))
-  presetId = settings?.['agent-presets']?.default ?? presetId
+  const settings = yaml.load(readFileSync(settingsPath, 'utf8'))?.['agent-presets']
+  if (settings !== undefined && typeof settings === 'object') {
+    const enabled = settings.modeSelectionEnabled ?? base.modeSelectionEnabled
+    policy = { default: enabled ? (settings.default ?? base.default) : base.default, modeSelectionEnabled: enabled }
+  }
 }
+const presetId = policy.default
 if (typeof presetId !== 'string') die('no default agent preset (neither settings.yaml nor the agent-presets row)')
 
 const presetRoots = [
@@ -84,7 +93,9 @@ const personaRow = (Array.isArray(presetRows) ? presetRows : []).find((row) => r
 // ── mount: deployment system-prompt config + the capability row + that persona ──
 
 const systemPromptRow = byId.get('system-prompt')
-const capabilityRow = byId.get('xiaobo-persona')
+// Match the capability rather than one id: a product build lists a package name
+// and the local plugin channel derives an id from it.
+const capabilityRow = rows.find((row) => typeof row.id === 'string' && row.id.endsWith('xiaobo-persona'))
 if (capabilityRow === undefined) die('the composition carries no xiaobo-persona row: run `pnpm run dev:desktop-snippet -- --write`')
 
 const { Context } = await importRuntimePackage(dshDir, '@deepseek-ai/cordis')
@@ -117,7 +128,7 @@ const rendered = systemPromptModule.renderPrompt(assembly)
 // ── report ──
 
 const personaPrefix = (personaRow?.config?.prefix ?? '').trim()
-console.log(`preset           : ${presetId}`)
+console.log(`preset           : ${presetId}${policy.modeSelectionEnabled ? '' : ' (selection off; deployment default)'}`)
 console.log(`  source         : ${presetDir}`)
 console.log(`  persona prefix : ${personaPrefix.length} chars${personaPrefix.length > 0 ? ' — carries text, this is the preset route' : ' (empty — the plugin carries the text)'}`)
 console.log(`  persona suffix : ${JSON.stringify(personaRow?.config?.suffix ?? '')}`)

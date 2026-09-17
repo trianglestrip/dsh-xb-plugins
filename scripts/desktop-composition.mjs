@@ -50,7 +50,9 @@ if (args.json) {
 }
 
 const byId = new Map(rows.filter((row) => typeof row.id === 'string').map((row) => [row.id, row]))
-const persona = byId.get('xiaobo-persona')
+// The row's id is a deployment choice (a product build lists a package, a local
+// plugin channel derives one from the package name), so match the capability.
+const persona = rows.find((row) => typeof row.id === 'string' && row.id.endsWith('xiaobo-persona'))
 const systemPrompt = byId.get('system-prompt')
 const mcp = rows.filter((row) => row.name === '@deepseek-ai/dsh-mcp-client').map((row) => row.id)
 
