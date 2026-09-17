@@ -1,6 +1,28 @@
 # Loading these plugins into a harness
 
-Two routes. Use the overlay for iteration, the profile install for anything you intend to keep.
+Three routes. A and B are Web/CLI only; C is the Electron Desktop app. Desktop cannot use A or B
+— see [`../docs/desktop-plugin-limits.md`](../docs/desktop-plugin-limits.md).
+
+## Route C — Desktop (Electron) app
+
+Desktop does not accept paths, links, git or tarballs, does not read `--patch` overlays, and refuses
+to let the CLI touch its profile (`profile "desktop" is managed exclusively by the Electron
+application`). The only way in is a published **registry package with an exact version**, installed
+from the app's plugin window:
+
+```sh
+# one-time, by the publisher
+pnpm run check
+pnpm --filter dsh-xb-xiaobo-persona publish --access public
+```
+
+Then in Desktop: **Plugins… → add → `dsh-xb-xiaobo-persona@0.1.0`**. Updates require naming the target
+version explicitly (there is no "latest" action), the Host restarts, and there is no rollback if
+the new version fails validation.
+
+Because the plugin window cannot edit config, deployment values (`locale`, section toggles) must be
+baked into the bundle's own `cordis.patch.yml` row; alternatively hand-edit
+`$DSH_HOME/profiles/desktop/cordis.patch.yml`, which Desktop still reads.
 
 ## Route A — one-off overlay (`--patch`)
 

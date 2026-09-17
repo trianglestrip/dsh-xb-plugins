@@ -14,7 +14,8 @@
     "test": "pnpm -r run test",
     "clean": "pnpm -r run clean",
     "dev:patch": "node scripts/dev-patch.mjs",
-    "check": "pnpm run typecheck && pnpm run build && pnpm run test"
+    "check:manifests": "node scripts/check-manifests.mjs",
+    "check": "pnpm run check:manifests && pnpm run typecheck && pnpm run build && pnpm run test"
   },
   "devDependencies": {
     "@types/node": "catalog:",

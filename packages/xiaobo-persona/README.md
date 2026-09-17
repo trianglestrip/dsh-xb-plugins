@@ -74,6 +74,42 @@ outranks every bundle layer:
 This bundle deliberately does **not** override the `system-prompt` row: replacing its config
 would clobber persona values set by other bundles (`dsh-web-app` sets them too).
 
+## Desktop (Electron) compatibility
+
+Desktop composes a different profile from Web/CLI and validates every third-party bundle against the
+runtime it ships. The gates that matter here:
+
+| Gate | Requirement | Status |
+|---|---|---|
+| Bundle form | package declares `dsh.bundle.patch`; patch file exists inside the package | ✓ |
+| Host packages are peers | every `@deepseek-ai/*` imported at runtime must be a `peerDependency`, never a `dependency` | ✓ (`schemastery` moved out of `dependencies`) |
+| Peer ranges | must satisfy the bundled versions (`cordis@4.0.2`, `dsh-system-prompt@0.1.6-alpha.1`, `schemastery@3.18.2`) | ✓ |
+| Registry-only install | `file:` / `link:` / path / git / tarball are rejected; only npm registry names, at an exact version | requires publishing to npm |
+| No service gap | must not inject `webServer` / `webStartup` / `webRuntime` | ✓ (only `systemPrompt`) |
+| Prebuilt JS | Desktop never compiles TypeScript; `lib/index.js` must be in the published tarball | ✓ (`prepack` builds) |
+| No install scripts | install runs with `--ignore-scripts` and a fixed `allowBuilds` list | ✓ |
+
+Desktop-specific consequences:
+
+- **No `--patch` overlay, no home layer.** The Web/CLI overlay route in
+  [`../../dev/README.md`](../../dev/README.md) does not apply; Desktop installs registry packages
+  through its own plugin window only.
+- **The plugin window cannot edit config.** Anything the deployment needs (`locale`, section
+  toggles, text overrides) must be baked into this bundle's own `cordis.patch.yml` row, or written
+  by hand into `$DSH_HOME/profiles/desktop/cordis.patch.yml`.
+- **Bundle layer order is package-name alphabetical**, not install order, so when two third-party
+  bundles patch the same row the alphabetically later one wins. This package only `insert`s its own
+  row, so it is order-independent today; keep it that way.
+- **No reload/HMR.** Changing prompt text means a new version, an explicit
+  `plugin-update <version>`, and a Host restart.
+- **Failure is not rolled back.** A bundle that fails validation stays installed and the profile
+  needs manual disable/fix/reset, so publish only after `pnpm run check` is green.
+
+Because Desktop has no config editor and no overlay, the only in-band way to suppress
+`harness:identity` there is for a bundle to override the `system-prompt` row — and a patch replaces
+that row's whole config, including the persona values `dsh-web-app` sets. This package deliberately
+does not do that; use the profile patch, or ship it as a separate opt-in preset bundle.
+
 ## What this package does not do
 
 - It does not register runtime context. CAD service health and DocManager's visible knowledge

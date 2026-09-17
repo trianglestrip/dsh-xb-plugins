@@ -26,6 +26,12 @@ Xiaobo plugin collection for DeepSeek Harness. Every package here is an out-of-t
 - **Placement is code, content is config.** Numeric orders for plugin-owned sections are
   structural (they encode relative position against the first-party bands) and live as
   constants; the text they carry is config.
+- **Desktop (Electron) is the strictest target.** Every `@deepseek-ai/*` import must be a
+  `peerDependency` with an exact `devDependency` twin, never a runtime `dependency` (Desktop's
+  `validateDesktopPluginGraph` rejects the whole profile otherwise); the package must publish
+  prebuilt `lib/index.js`, carry no install scripts, and be installable from the npm registry at an
+  exact version. `pnpm run check:manifests` enforces the machine-checkable half of this — see
+  [`docs/desktop-plugin-limits.md`](docs/desktop-plugin-limits.md) for the full gate list.
 
 ## Package shape
 
