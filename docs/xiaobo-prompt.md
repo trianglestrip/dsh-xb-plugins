@@ -308,6 +308,50 @@ dsh 的 `section()` 接受任意有限数值 order（`packages/core/system-promp
 
 两条线**互不依赖**，唯一汇合点是 `toolOrder`。MCP 侧的配置样例与说明见 [`docmanager.md`](docmanager.md) §2。
 
+### 3.7 Desktop 落点：两条免发布通道
+
+Desktop 的组合层固定为 `bundle 层 → profile patch → desktop patch`，没有 `--patch` overlay、没有 home
+层、没有 `patchReload`/client HMR，CLI 也拒绝管理 `desktop` profile。所以 §3.3 的四种实现（A/B/C/D）在
+Desktop 上收敛成两条**互斥**的通道 —— preset 的 persona 会与插件的 section 重叠，同时启用等于把同一
+段文本送两遍。
+
+| 通道 | 文本在哪 | 定型时机 | 落地命令 | 代价 |
+|---|---|---|---|---|
+| **插件**（A+C，不发布就用 profile patch） | `lib/index.js` | Host 启动 | `pnpm run dev:desktop-snippet -- --write` | 本机绝对路径；插件窗口看不到；不过依赖闸；profile reset 会删 |
+| **preset**（D） | `~/.dsh/.agent-presets/<id>/agent.cordis.yml` | 每个新会话挂载时读盘 | `pnpm run dev:agent-preset` | 只能带文本；五段合并进 persona（order 0）；`harness:identity` 关不掉 |
+
+两条通道的落点差异：
+
+| 内容 | 插件通道 | preset 通道 |
+|---|---|---|
+| identity / domain / safety / norms / objectivity | 五个 section，order **0 / 400 / 410 / 420 / 430** | 五段合并为 `deployment:persona-prefix`（order **0**） |
+| product help | `xiaobo:product-help`（**10200**） | 并入 `deployment:persona-suffix` |
+| `harness:identity`（−1000） | 由 `- id: system-prompt` 的 `includeHarnessIdentity: false` 关掉 | **关不掉**（只能改 host 行，那就已经是插件通道） |
+| 会话中途会变的状态（CAD 健康、知识作用域、roster） | 可以加 `systemPrompt.context()` | **不可用**：preset 只带文本 |
+
+`SECTION_ORDERS` 里 0 与 500（`PLAN_POLICY`）之间没有任何一等公民 section，所以“五段合并到 order 0”
+不改变“领域/安全规范排在 plan policy 与全部工具指导带（1000+）之前”这一事实，丢的只是粒度（逐段
+开关、逐段文本覆盖）。
+
+两条通道都需要一个 preset 来构成会话，差别只在这个 preset 的 persona 带不带文本：
+
+- 走**插件**通道：`pnpm run dev:agent-preset -- --persona plugin` —— persona 留空。必须留空：preset 的
+  `dsh-persona` 在 agent scope 内 **shadow** 部署 persona 槽（而不是退回部署值），否则 `standard` 的
+  `You are a coding agent powered by {{model}}` 会顶在 `xiaobo:identity` 之前。
+- 走 **preset** 通道：用默认的 `--persona preset`，文本全部在 preset 里。
+
+验收（Desktop 没有 `--dump-config`，所以分三步）：
+
+```sh
+pnpm run dev:desktop-composition          # 组装：system-prompt 行与 xiaobo-persona 行确实生效
+pnpm run dev:desktop-prompt               # 渲染：真实会话的系统提示词，六段各一次（--full 打印全文）
+pnpm --filter dsh-xb-xiaobo-persona run test   # 顺序：真实 registry 下的 section 装配断言
+```
+
+`dev:desktop-prompt` 同时是两条通道重复注入的检测器：如果 preset 的 persona 还带着文本（应该用
+`--persona plugin`），每段会出现 2 次，脚本退出码 1 并逐段报出。启动后同一会话只应有一条
+`system/message` surface 节点；若出现内置 harness 身份行，说明 profile patch 没被读到。
+
 ---
 
 ## 4. 已落地：`dsh-xb-xiaobo-persona`
@@ -370,8 +414,9 @@ dsh 的 `section()` 接受任意有限数值 order（`packages/core/system-promp
 ### P1（dsh 提示词面）——部分已完成
 
 5. ✅ 新增 persona 插件，注册 6 个 section。
-6. ⬜ 配置 `toolOrder` 固定 `cad_*` / `python_*` / `mcp__docmanager__*`（跨插件）。
-7. ⬜ 把 CAD 健康、知识作用域、roster 移入 `contexts`。
+6. ✅ 不发布路径：Desktop profile patch（`scripts/desktop-snippet.mjs --write`）+ `--persona plugin` 的 preset（§3.7）。
+7. ⬜ 配置 `toolOrder` 固定 `cad_*` / `python_*` / `mcp__docmanager__*`（跨插件）。
+8. ⬜ 把 CAD 健康、知识作用域、roster 移入 `contexts`（注意：这条路必须走插件，preset 带不了）。
 
 **验收**：`system-prompt/assemble` 产出的 section 顺序为 `identity(0) → domain(400) → safety(410) → norms(420) → objectivity(430) → … → MCP_SERVERS(3100) → help(10200)`；同一会话内改动动态状态**不**改变 surface 节点、**不**开新请求序列；`deriveMessages()` 得到的 system 文本与会话日志一致。
 

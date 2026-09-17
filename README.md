@@ -11,8 +11,11 @@ dsh-xb-plugins/
 ├─ deploy/              ← 部署层：纯 patch、零代码，不是插件
 ├─ docs/                ← 中文设计/分析文档 + 插件索引
 ├─ dev/                 ← 开发脚本说明 + 本机生成的 overlay（gitignore）
-└─ scripts/             ← check-manifests / dev-patch / desktop-snippet
+└─ scripts/             ← check-manifests / dev-patch / desktop-snippet / desktop-composition / desktop-prompt / gen-agent-preset
 ```
+
+Desktop 不发布（profile patch + agent preset）的完整插入流程、验证命令与选型对照，见
+[`docs/plugins.md`](docs/plugins.md) 第 6 节与 [`docs/xiaobo-prompt.md`](docs/xiaobo-prompt.md) §3.7。
 
 `packages/` 下每个插件都随包交付一个 `cordis.patch.yml` 配置层与编译好的插件入口，并在
 `package.json` 里声明 `dsh.bundle`；`deploy/` 只交付前者。本仓库不是 harness 的 fork —— 每个包都以

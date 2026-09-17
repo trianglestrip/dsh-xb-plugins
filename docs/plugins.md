@@ -95,7 +95,48 @@ Desktop 的 profile 由 Electron 独占，安装能力被收窄成结构化操�
 - 没有 `--patch` 覆盖层、没有 home patch 层、没有 HMR，改动 = 重启 Host。
 - 校验失败**不回滚**，需要手动禁用/修复/重置 profile。
 
-### C0 推荐：不发布、不改动原有配置 —— 把提示词做成 agent preset
+### 选哪条：C0 还是 C2
+
+Desktop 不接受本地路径规格，所以**不发布**时只剩两条路，它们**互斥**（persona 会重叠，同时启用等于把同一段
+文本送两遍）。选哪条看你要不要 §3.7 那套完整定义：
+
+| 要插入的东西 | C2 profile patch | C0 agent preset |
+|---|---|---|
+| 六段独立 section（order 0 / 400 / 410 / 420 / 430 / 10200） | ✅ 原样成立 | ❌ 五段合并为 persona 前缀（order 0），help 并入后缀 |
+| 逐段开关、逐段文本覆盖、`locale` 切换 | ✅ 插件的 `config` | ❌ 生成时定型，改一段要重跑脚本 |
+| 关掉内置 `harness:identity`（白标） | ✅ 一行 `system-prompt` config | ❌ 关不掉（只能改 host 行，那就已是 C2） |
+| 将来加 CAD 健康 / 知识作用域 / roster（`systemPrompt.context()`） | ✅ 同一条 patch 再插一个插件 | ❌ preset 只带文本 |
+| 工具行 / MCP server 行 | ✅ 同样手写 row | ❌ 带不了 |
+| 定型时机 / 改文案代价 | Host 启动；改完重启 Desktop | 每个新会话；改完不用重启 |
+| profile reset / 换机 / dsh 升级 | ⚠️ reset 会删、路径是本机的、升级后重跑 `--write` | ✅ 纯数据目录，重跑生成脚本即可，不参与 profile 事务 |
+| 插件窗口 | ❌ 看不见、不能开关、不过依赖闸 | ❌ 不是插件（在模式选择器里） |
+| 需要发布 / registry / 绝对路径 | 不需要发布；需要绝对路径 | 两者都不需要 |
+
+**结论**：要“小博定义完整可扩展”（做 DocManager 的 `context()`、`toolOrder`）→ **C2**；要“随 Desktop 升级
+自愈、绝不动 profile” → **C0**（代价是合并为两槽 + 内置身份行）。两者都不需要发布。
+
+```sh
+# C2（当前采用）：写 profile patch + 生成配套的 persona 留空 preset
+pnpm run build
+pnpm run dev:desktop-snippet -- --write
+pnpm run dev:agent-preset -- --persona plugin
+pnpm run dev:desktop-composition          # 验证组合
+
+# C2′（本地插件通道）：不经发布、不改 profile 里的依赖，挂任意本地目录
+pnpm run dev:desktop-local-plugin -- add <repo>/packages/xiaobo-persona --config '{"locale":"zh"}'
+pnpm run dev:desktop-local-plugin -- list        # 看已挂的本地行（路径不存在会报 MISSING）
+pnpm run dev:desktop-local-plugin -- remove <id>
+# 重启 Desktop 生效；这些 row 不受插件窗口管理、不过依赖闸、profile 重置会清除
+
+# C0（只留文本）：不碰 profile，把文本放回 preset
+pnpm run build && pnpm run dev:agent-preset -- --persona preset
+# 再从 profile patch 里删掉 '# >>> dsh-xb-plugins' 与 '# <<< dsh-xb-plugins' 之间那段
+```
+
+C2 的 row 形状、C3 已实测排除的路见下文；完整对照与验收方法见
+[`xiaobo-prompt.md`](xiaobo-prompt.md) §3.7。
+
+### C0：不发布、不改动原有配置 —— 把提示词做成 agent preset
 
 Desktop 只对**插件**要求 registry 包，而 **agent preset 只是一个 YAML 目录**
 （`$DSH_HOME/.agent-presets/<id>/`），roster 默认就扫它（`includeUserRoot: true`）。
@@ -132,7 +173,8 @@ pnpm run dev:agent-preset # 生成 ~/.dsh/.agent-presets/xiaobo/
 | 插件窗口可见 | ❌（preset 不是插件；它在**模式选择器**里） |
 | 覆盖 `standard` 的 persona | ✅（preset 自己挂 `dsh-persona`，agent scope 覆盖全局） |
 | dsh 升级后漂移 | ❌ 重跑生成脚本即可（它从运行时读上游 `standard`） |
-| 多段 section 顺序（400/410/420/430） | 合并为一段 persona（order 0），仍在所有工具指导之前 |
+| 多段 section 顺序（400/410/420/430） | 合并为一段 persona（order 0），仍在所有工具指导之前（`SECTION_ORDERS` 里 0 与 `PLAN_POLICY=500` 之间没有任何一等公民 section） |
+| 与插件通道的关系 | **互斥**：preset 的 persona 在 agent scope 内 shadow 部署 persona 槽，同时挂 `dsh-xb-xiaobo-persona` 会把同一段文本送两遍。走插件时用 `--persona plugin`（见 C2） |
 | 保留的差异 | 内置的 `harness:identity` 行（`You are an AI agent powered by DeepSeek Harness.`）会留在最前面。关掉它**只能**改 host 的 `system-prompt` 行 —— 那就不是“只增加”了，所以本路线不碰它（要白标时用 C1/C2 的 `dsh-xb-deploy`） |
 | 局限 | 只能带**文本**。工具行、MCP server 行仍需插件/bundle 或 profile patch |
 
@@ -181,38 +223,48 @@ disable-all | reset`。它走完整事务（链接宿主包 → 校验依赖图 
 `@scope:registry` 能覆盖它（实测：在 `$DSH_HOME/desktop/pnpm/config/npmrc` 写
 `@xb:registry=http://127.0.0.1:4873/` 后，内置 pnpm 会走本地，未加 scope 的包仍走公网）。
 
-### C2 本地验证路径（不发布，直接写 profile patch）
+### C2 本地/内测路径（不发布，直接写 profile patch）
 
 `$DSH_HOME/profiles/desktop/cordis.patch.yml` 仍然会被读取，且它的层序在 bundle 层之后、桌面组合层之前。
-这个文件本来就用来挂本机 MCP，因此可以同样挂本地构建的插件：
+这个文件本来就用来挂本机 MCP，因此可以同样挂本地构建的插件。**这就是「不发布但要真正的六个 section」
+的那条路**：
+
+```sh
+pnpm run build
+pnpm run dev:desktop-snippet -- --write   # 合并进 profile patch（带 marker，可重复执行）
+pnpm run dev:desktop-composition          # 用运行时自己的 composeEntries 断言两行确实生效
+pnpm run dev:desktop-prompt               # 渲染真实会话的系统提示词，断言六段各一次
+```
+
+合并进去的两部分（脚本生成，不手写）：
 
 ```yaml
-# %USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml
-#
-# 1) 部署层内容（覆盖 in-box row）
+# 1) 部署层内容，逐字来自 deploy/cordis.patch.yml
 - id: system-prompt
   config:
     includeHarnessIdentity: false
     personaPrefix: ''
     personaSuffix: ''
 
-# 2) 能力插件（绝对路径指向构建产物）
+# 2) 能力插件 row，逐字来自 packages/xiaobo-persona/cordis.patch.yml：
+#    仅把包名换成构建产物的绝对路径，id / config / 注释全部原样带过来
 - insert:
     - id: xiaobo-persona
       name: '<repo>/packages/xiaobo-persona/lib/index.js'
+      # config:        # ← 在 bundle 自己的 patch 里取消注释即生效，重跑 --write 即同步
+      #   locale: zh
 ```
 
-保存后**重启 Desktop** 生效。
-
-这条路径的性质（务必知道）：
+保存后**重启 Desktop** 生效。这条路径的性质（务必知道）：
 
 | 项 | 实际情况 |
 |---|---|
 | 是否被插件窗口管理 | 否。row 不在 `dsh.profile.bundles` 里，插件窗口看不到、不能开关、`disable-all` 也管不到 |
 | 是否过 Desktop 依赖闸 | 否。`validateDesktopPluginGraph` 只校验 bundle 列表里的包，手写 row 绕过了它 |
-| profile 重置 | 会被删除（重置清空 profile 目录，除 lock 外） |
-| 运行时依赖 | 插件只 import `@deepseek-ai/schemastery`，需要它从插件目录可解析 —— `<repo>/packages/xiaobo-persona/node_modules` 里已有（`pnpm install` 装的 3.18.2，与 Desktop 内置同版本） |
-| 定位 | **本机验证 / 内测用途，不是发布路径**。要交付给用户请在 C1 发布 |
+| profile 重置 | 会被删除（重置清空 profile 目录，除 lock 外）；重跑 `--write` 即可恢复 |
+| 运行时依赖 | 插件只 import `@deepseek-ai/schemastery`，需要它从插件目录可解析 —— `<repo>/packages/xiaobo-persona/node_modules` 里已有（`pnpm install` 装的 3.18.2，与 Desktop 内置同版本）。已实测：在 Desktop 运行时自己的 `node.exe` 与自己的 `cordis` / `dsh-system-prompt` 下加载成功，六个 section 顺序与期望一致 |
+| **与 preset 的关系** | **互斥**。preset 的 `dsh-persona` 在 agent scope 内 shadow 部署 persona 槽（而不是退回部署值），所以 `standard` 那行 `You are a coding agent powered by {{model}}` 会顶在 `xiaobo:identity` 之前，且文本重复。走这条路径时改用 `pnpm run dev:agent-preset -- --persona plugin`：persona 留空，文本全部由六个 section 提供 |
+| 定位 | **本机验证 / 内测 / 不想发布时的交付**。要进插件窗口、能被开关与升级，请在 C1 发布 |
 
 ### C3 已实测排除的路
 
@@ -255,6 +307,13 @@ pnpm --filter dsh-xb-xiaobo-persona run test
 pnpm run check                                                   # 本仓库：manifest 守卫 + 类型 + 构建 + 测试
 pnpm dsh --profile xb --dump-config                              # Web/CLI：组合与层序
 pnpm dsh --profile xb                                             # 启动；persona 对每个会话生效
+```
+
+Desktop（没有 `--dump-config`，用两个脚本代替）：
+
+```sh
+pnpm run dev:desktop-composition   # 组合：system-prompt / xiaobo-persona 两行生效
+pnpm run dev:desktop-prompt        # 渲染：六段各一次、首句为 Xiaobo、无 harness 身份行
 ```
 
 期望的 section 顺序（`system-prompt/assemble`）：
