@@ -11,6 +11,7 @@ Each package under `packages/` is an independently installable **dsh bundle**: i
 
 | Package | Registers | Status |
 |---|---|---|
+| [`dsh-xb-deploy`](packages/deploy) | Deployment-wide harness policy: drops the in-box harness identity and the generic `dsh-web-app` persona; later owns `toolOrder` and the DocManager MCP row | v0.1.0 |
 | [`dsh-xb-xiaobo-persona`](packages/xiaobo-persona) | Xiaobo identity + domain/safety/interaction policy prompt sections | v0.1.0 |
 | *(next)* `dsh-xb-docmanager` | DocManager knowledge scope as runtime context | planned |
 

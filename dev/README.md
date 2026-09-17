@@ -13,12 +13,20 @@ from the app's plugin window:
 ```sh
 # one-time, by the publisher
 pnpm run check
+pnpm --filter dsh-xb-deploy publish --access public
 pnpm --filter dsh-xb-xiaobo-persona publish --access public
 ```
 
-Then in Desktop: **Plugins… → add → `dsh-xb-xiaobo-persona@0.1.0`**. Updates require naming the target
-version explicitly (there is no "latest" action), the Host restarts, and there is no rollback if
-the new version fails validation.
+Then in Desktop, add **both** (they are independent bundles; the deployment layer carries the
+composition values, the capability bundle carries the prompt sections):
+
+```text
+dsh-xb-deploy@0.1.0
+dsh-xb-xiaobo-persona@0.1.0
+```
+
+Updates require naming the target version explicitly (there is no "latest" action), the Host
+restarts, and there is no rollback if the new version fails validation.
 
 Because the plugin window cannot edit config, deployment values (`locale`, section toggles) must be
 baked into the bundle's own `cordis.patch.yml` row; alternatively hand-edit
@@ -52,25 +60,26 @@ it to the profile's bundle list.
 pnpm install && pnpm run build
 
 # in the harness checkout
+pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/deploy
 pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/xiaobo-persona
 pnpm dsh --profile xb
 ```
 
-Verify the layer without booting:
+Verify the layers without booting:
 
 ```sh
-pnpm dsh --profile xb --dump-config | grep -A3 'dsh-xb-xiaobo-persona'
+pnpm dsh --profile xb --dump-config | grep -A3 'dsh-xb-deploy\|dsh-xb-xiaobo-persona'
 ```
 
-Remove it with `pnpm dsh plugin --profile xb remove dsh-xb-xiaobo-persona`.
+Remove them with `pnpm dsh plugin --profile xb remove <name>`.
 
 ## Where each plugin's config lives
 
 | Concern | Layer | Why |
 |---|---|---|
-| Enable/disable the plugin row, locale, section toggles, text overrides | the bundle's own row `config` (profile patch can override) | deployment choice owned by this repo's schema |
-| Suppressing `harness:identity`, pinning `toolOrder` | the **profile's** `cordis.patch.yml` | shared with other bundles; a patch replaces the row's whole config, so the profile is the right place to restate it |
-| DocManager MCP connection | an `@deepseek-ai/dsh-mcp-client` row | transport config, not a prompt concern |
+| Enable/disable the plugin row, locale, section toggles, text overrides | the capability bundle's own row `config` | capability-owned values; the profile patch can still override them |
+| Suppressing `harness:identity`, clearing the `web-app` persona, pinning `toolOrder` | `packages/deploy` (the deployment layer), or the profile's own `cordis.patch.yml` | these override an **in-box row**, so they are composition changes; a patch replaces the row's whole config |
+| DocManager MCP connection | an `@deepseek-ai/dsh-mcp-client` row (planned: `packages/deploy`) | transport config, not a prompt concern |
 
 ## Verifying the sections actually landed
 

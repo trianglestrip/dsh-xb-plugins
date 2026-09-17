@@ -57,22 +57,23 @@ Or boot a source checkout with a one-off overlay — see [`../../dev/README.md`]
 ## Deployment note: the harness identity line
 
 `dsh-system-prompt` prepends its own `harness:identity` section (order −1000,
-`"You are an AI agent powered by DeepSeek Harness."`) unless the row disables it. For a
-white-label Xiaobo deployment, turn it off in the **profile's own** patch layer, which
-outranks every bundle layer:
+`"You are an AI agent powered by DeepSeek Harness."`) unless the row disables it. A white-label
+Xiaobo deployment turns it off in [`dsh-xb-deploy`](../deploy), the deployment layer that owns
+every override of an in-box row:
 
 ```yaml
-# $DSH_HOME/profiles/xb/cordis.patch.yml
+# packages/deploy/cordis.patch.yml
 - id: system-prompt
   config:
     includeHarnessIdentity: false
-    # A patch replaces the row's whole config, so restate what the profile needs:
+    # A patch replaces the row's whole config, so restate what the deployment needs:
     personaPrefix: ''
     personaSuffix: ''
 ```
 
-This bundle deliberately does **not** override the `system-prompt` row: replacing its config
-would clobber persona values set by other bundles (`dsh-web-app` sets them too).
+This bundle deliberately does **not** override the `system-prompt` row. Replacing that row's config
+is a composition change — it also clears the persona values `dsh-web-app` sets — so it belongs in the
+deployment layer, not in a reusable capability. A profile that wants both installs both bundles.
 
 ## Desktop (Electron) compatibility
 
@@ -105,10 +106,10 @@ Desktop-specific consequences:
 - **Failure is not rolled back.** A bundle that fails validation stays installed and the profile
   needs manual disable/fix/reset, so publish only after `pnpm run check` is green.
 
-Because Desktop has no config editor and no overlay, the only in-band way to suppress
-`harness:identity` there is for a bundle to override the `system-prompt` row — and a patch replaces
-that row's whole config, including the persona values `dsh-web-app` sets. This package deliberately
-does not do that; use the profile patch, or ship it as a separate opt-in preset bundle.
+Because Desktop has no config editor and no overlay, the in-band way to suppress `harness:identity`
+is a bundle that overrides the `system-prompt` row — and a patch replaces that row's whole config,
+including the persona values `dsh-web-app` sets. That is [`dsh-xb-deploy`](../deploy)'s job, not this
+package's.
 
 ## What this package does not do
 

@@ -26,6 +26,10 @@ Xiaobo plugin collection for DeepSeek Harness. Every package here is an out-of-t
 - **Placement is code, content is config.** Numeric orders for plugin-owned sections are
   structural (they encode relative position against the first-party bands) and live as
   constants; the text they carry is config.
+- **Capability plugins never patch another bundle's row.** Overriding an in-box row (for example
+  `system-prompt`) replaces that row's whole config and therefore changes the composition, not the
+  capability. Those overrides live in [`packages/deploy`](packages/deploy) — the Xiaobo deployment
+  layer — so installing a capability bundle can never silently redefine the product.
 - **Desktop (Electron) is the strictest target.** Every `@deepseek-ai/*` import must be a
   `peerDependency` with an exact `devDependency` twin, never a runtime `dependency` (Desktop's
   `validateDesktopPluginGraph` rejects the whole profile otherwise); the package must publish

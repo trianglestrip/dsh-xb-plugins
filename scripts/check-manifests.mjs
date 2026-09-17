@@ -13,8 +13,8 @@
  *   never `dependencies` / `optionalDependencies`;
  * - every host peer must also be an exact `devDependency`, so type checking uses
  *   the same release the runtime provides;
- * - the package must ship prebuilt JS at `lib/index.js` (Desktop never compiles
- *   TypeScript) and must not be `private` or publish a version range.
+ * - the package must ship prebuilt JS at its declared `main` (Desktop never
+ *   compiles TypeScript); a patch-only bundle declares no `main` and is allowed.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
@@ -73,7 +73,10 @@ for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
   }
 
   const files = Array.isArray(manifest.files) ? manifest.files : []
-  if (!files.includes('lib/index.js')) fail(`${label}: files must include lib/index.js`)
+  const main = typeof manifest.main === 'string' ? manifest.main : undefined
+  if (main !== undefined && !files.includes(main)) {
+    fail(`${label}: files must include the declared main entry ${main}`)
+  }
 
   const dependencies = stringMap(manifest.dependencies)
   const optional = stringMap(manifest.optionalDependencies)

@@ -1,0 +1,22 @@
+{
+  "name": "dsh-xb-deploy",
+  "version": "0.1.0",
+  "description": "Xiaobo deployment layer: deployment-wide harness policy for the Xiaobo product",
+  "type": "module",
+  "files": [
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-bundle",
+    "deployment"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

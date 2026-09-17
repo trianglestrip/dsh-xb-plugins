@@ -78,4 +78,23 @@ describe('xiaobo-persona against the real registry', () => {
       await ctx.fiber.dispose()
     }
   })
+
+  it('drops the harness identity when the deployment layer suppresses it', async () => {
+    const ctx = new Context()
+    try {
+      // Exactly the `system-prompt` row shape produced by
+      // packages/deploy/cordis.patch.yml, which owns this deployment decision.
+      await ctx.plugin(SystemPrompt, {
+        includeHarnessIdentity: false,
+        personaPrefix: '',
+        personaSuffix: '',
+      })
+      await ctx.plugin(Xiaobo, {})
+      const assembly = await ctx.systemPrompt.assemble({})
+      expect(assembly.sections.find((section) => section.name === 'harness:identity')).toBeUndefined()
+      expect(renderPrompt(assembly).startsWith('You are "Xiaobo"')).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
 })

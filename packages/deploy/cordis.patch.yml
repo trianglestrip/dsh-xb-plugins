@@ -1,0 +1,30 @@
+# The Xiaobo deployment layer.
+#
+# This layer carries deployment-wide policy only: values that describe how the
+# Xiaobo product is composed, not what any single capability does. Capability
+# bundles (`dsh-xb-xiaobo-persona`, and later the DocManager/knowledge bundles)
+# register their own rows and never patch another bundle's row, so installing a
+# capability cannot silently change the deployment.
+#
+# Layer order: this layer is applied after every in-box bundle, so it outranks
+# `dsh-web-app`. On Desktop the third-party bundle order is package-name
+# alphabetical, so a bundle named after `dsh-xb-deploy` would outrank this one.
+#
+# A patch replaces the target row's ENTIRE config, so every key this deployment
+# cares about is restated below; omitted keys fall back to the plugin's schema
+# defaults.
+
+- id: system-prompt
+  config:
+    # White-label: the in-box "You are an AI agent powered by DeepSeek Harness."
+    # opener would otherwise precede the Xiaobo identity section. Only the row
+    # config can turn it off, which is why the decision lives in this layer.
+    includeHarnessIdentity: false
+    # `dsh-web-app` ships a generic coding-agent persona in these two slots.
+    # Clearing them leaves the persona position to the Xiaobo identity section
+    # registered by `dsh-xb-xiaobo-persona`.
+    personaPrefix: ''
+    personaSuffix: ''
+    # `toolOrder` is intentionally omitted so the schema default (lexicographic
+    # tool order) applies. Pin it here once the CAD/Python/DocManager tool
+    # bundles are in: a stable order is what keeps one request series.

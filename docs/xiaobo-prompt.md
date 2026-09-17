@@ -328,7 +328,22 @@ dsh 的 `section()` 接受任意有限数值 order（`packages/core/system-promp
 ### 落地时确认的两个关键约束（修正了原始推断）
 
 1. **保留名不能被全局插件占用**：`dsh-system-prompt` 自身在全局层注册 `deployment:persona-prefix` / `deployment:persona-suffix`，同名全局注册会直接**加载失败**（`"..." is already registered`）。因此插件在相同 order 上用**不同名字**（`xiaobo:*`），而不是 shadow；只有 agent scope 内的 `dsh-persona` 才会 shadow 保留名。所以 `personaPrefix` 配置与 `xiaobo:identity` 会**同时存在**（默认 prefix 为空则渲染时丢弃）。
-2. **`harness:identity`（order −1000）默认输出** `You are an AI agent powered by DeepSeek Harness.`，位于 `xiaobo:identity` 之前；白标部署应在 **profile 自己的 patch 层**（优先级最高）关闭：`system-prompt` 行设 `includeHarnessIdentity: false`（该 patch 会整体替换该行 config，需同时重申 `personaPrefix`/`personaSuffix`）。
+2. **`harness:identity`（order −1000）默认输出** `You are an AI agent powered by DeepSeek Harness.`，位于 `xiaobo:identity` 之前。关闭它只能改 `system-prompt` 行的 `includeHarnessIdentity`（没有别的开关），而 patch 会**整体替换该行 config**（连带清掉 `dsh-web-app` 的 persona 值）——所以这是**组合层决策**，不是能力插件的职责。已落到本仓库 `packages/deploy`（`dsh-xb-deploy` 部署层），配套 `includeHarnessIdentity: false` + `personaPrefix/personaSuffix: ''`；profile 自己的 `cordis.patch.yml` 仍然可用且优先级更高（Desktop 上只能手改，没有 UI 入口）。
+
+### 部署层 `dsh-xb-deploy`
+
+`packages/deploy` 是**纯 patch bundle**（无代码），只承载「产品如何组合」的值：
+
+| 值 | 现状 | 后续 |
+|---|---|---|
+| `system-prompt.includeHarnessIdentity` | `false` | — |
+| `system-prompt.personaPrefix` / `personaSuffix` | `''`（清掉 web-app 的通用 coding-agent persona） | — |
+| `system-prompt.toolOrder` | 省略（用 schema 默认字典序） | 等 CAD/Python/DocManager 工具包就位后在这里固定顺序 |
+| `@deepseek-ai/dsh-mcp-client` 行 | 未加 | DocManager 改造落地时在这里挂 |
+
+为什么不让 `xiaobo-persona` 自己 override：能力插件一旦改别人的 row，把它装进一个已有自定义 persona 的 profile 就会静默抹掉对方的配置；而且 Desktop 的第三方 bundle 层序是**包名字典序**，“谁赢哪一行”属于组合事实而非插件事实。
+
+部署时需同时装两个 bundle（部署层 + 能力层），两者互不依赖；契约测试见 `packages/xiaobo-persona/tests/integration.spec.ts` 的 “drops the harness identity when the deployment layer suppresses it”。
 
 ### 验证
 
