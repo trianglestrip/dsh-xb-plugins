@@ -95,13 +95,11 @@ Desktop 的 profile 由 Electron 独占，安装能力被收窄成结构化操�
 - 没有 `--patch` 覆盖层、没有 home patch 层、没有 HMR，改动 = 重启 Host。
 - 校验失败**不回滚**，需要手动禁用/修复/重置 profile。
 
-### C0 推荐：不发布也能注入 —— 把提示词做成 agent preset
+### C0 推荐：不发布、不改动原有配置 —— 把提示词做成 agent preset
 
 Desktop 只对**插件**要求 registry 包，而 **agent preset 只是一个 YAML 目录**
-（`$DSH_HOME/.agent-presets/<id>/`），roster 默认就扫它（`includeUserRoot: true`），
-不需要安装、不需要发布、不需要 registry，也不需要任何绝对路径。
-
-提示词本来就是数据，所以最省事的注入方式是**把它当数据交付**：
+（`$DSH_HOME/.agent-presets/<id>/`），roster 默认就扫它（`includeUserRoot: true`）。
+提示词本来就是数据，所以最干净的方式是**把它当数据、放进用户目录**：
 
 ```sh
 pnpm run build            # 文本来自 packages/xiaobo-persona 的片段
@@ -110,26 +108,39 @@ pnpm run dev:agent-preset # 生成 ~/.dsh/.agent-presets/xiaobo/
 
 生成物 = 上游 `standard` 组合 + 替换后的 `persona` row（其余 17 行逐字保留；实测 diff 只有一个 hunk），
 文本直接取自插件的 `fragments.ts`，所以 preset 与插件**永远不会说法不一致**。
-重启 Desktop 后，在**模式选择器**里选「小博」即可；要设成默认就在 profile patch 里加一行：
 
-```yaml
-- id: agent-presets
-  config:
-    default: xiaobo
-```
+**它不动任何原有配置。** 生效方式有两种，都不需要 patch：
+
+1. **在应用里选**：模式选择器（mode picker）会多出「小博」，逐会话选即可。
+2. **设为默认**：这是**用户设置**，不是组合配置 —— `dsh-agent-presets` 注册了设置命名空间
+   `agent-presets`，其 `default` 会覆盖 bundle 里的 `config.default`：
+
+   ```yaml
+   # $DSH_HOME/settings.yaml —— 与设置界面写入的是同一个位置
+   agent-presets:
+     default: xiaobo
+     modeSelectionEnabled: true   # 注册基线的值；用户段是整体替换，所以必须一并写上
+   ```
+
+   设置文档是热加载的，改完对**下一个新建会话**生效，不必重启（`.agent-presets/` 目录本身也是每次读取）。
 
 | 项 | 实际情况 |
 |---|---|
+| 改动原有配置 | ❌ 一个字节都不改：预设是新目录，默认走用户设置 |
 | 需要 registry / publish | ❌ 都不需要 |
 | 需要绝对路径 | ❌ 所有 row 都指向 runtime 自带的包 |
 | 插件窗口可见 | ❌（preset 不是插件；它在**模式选择器**里） |
 | 覆盖 `standard` 的 persona | ✅（preset 自己挂 `dsh-persona`，agent scope 覆盖全局） |
 | dsh 升级后漂移 | ❌ 重跑生成脚本即可（它从运行时读上游 `standard`） |
 | 多段 section 顺序（400/410/420/430） | 合并为一段 persona（order 0），仍在所有工具指导之前 |
+| 保留的差异 | 内置的 `harness:identity` 行（`You are an AI agent powered by DeepSeek Harness.`）会留在最前面。关掉它**只能**改 host 的 `system-prompt` 行 —— 那就不是“只增加”了，所以本路线不碰它（要白标时用 C1/C2 的 `dsh-xb-deploy`） |
 | 局限 | 只能带**文本**。工具行、MCP server 行仍需插件/bundle 或 profile patch |
 
 > 生成脚本会自检：用 runtime 自带的 `js-yaml` + `entryListSchema` 解析（与 roster 同一个解析器），
 > 并逐行确认每个 `name` 在 runtime 里可解析；自检不过就不写文件。
+>
+> 风险：设置里的 `default: xiaobo` 指向用户目录里的预设，如果手动删掉该目录，新会话会找不到默认模式
+> 而报错。恢复就是再跑一次 `pnpm run dev:agent-preset`；不想让它成为默认就把 `default` 改回 `standard`。
 
 ### C1 正式路径（需要先发布到 npm）
 
