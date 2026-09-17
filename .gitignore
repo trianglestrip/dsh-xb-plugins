@@ -9,3 +9,6 @@ coverage/
 
 # Generated per machine by scripts/dev-patch.mjs (absolute paths).
 dev/cordis.xiaobo.local.yml
+
+# Generated per machine by scripts/desktop-snippet.mjs (absolute module paths).
+dev/desktop-profile-patch.snippet.yml

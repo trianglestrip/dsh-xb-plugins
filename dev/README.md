@@ -1,93 +1,67 @@
-# Loading these plugins into a harness
+# 开发脚本与本地覆盖层
 
-Three routes. A and B are Web/CLI only; C is the Electron Desktop app. Desktop cannot use A or B
-— see [`../docs/desktop-plugin-limits.md`](../docs/desktop-plugin-limits.md).
+本目录只讲**开发期**怎么把尚未发布的插件临时挂进 harness。完整的安装方式（Web/CLI profile、
+一次性 overlay、Desktop、测试内挂载）与配置速查见 [`../packages/README.md`](../packages/README.md)。
 
-## Route C — Desktop (Electron) app
+## 仓库脚本
 
-Desktop does not accept paths, links, git or tarballs, does not read `--patch` overlays, and refuses
-to let the CLI touch its profile (`profile "desktop" is managed exclusively by the Electron
-application`). The only way in is a published **registry package with an exact version**, installed
-from the app's plugin window:
-
-```sh
-# one-time, by the publisher
-pnpm run check
-pnpm --filter dsh-xb-deploy publish --access public
-pnpm --filter dsh-xb-xiaobo-persona publish --access public
-```
-
-Then in Desktop, add **both** (they are independent bundles; the deployment layer carries the
-composition values, the capability bundle carries the prompt sections):
-
-```text
-dsh-xb-deploy@0.1.0
-dsh-xb-xiaobo-persona@0.1.0
-```
-
-Updates require naming the target version explicitly (there is no "latest" action), the Host
-restarts, and there is no rollback if the new version fails validation.
-
-Because the plugin window cannot edit config, deployment values (`locale`, section toggles) must be
-baked into the bundle's own `cordis.patch.yml` row; alternatively hand-edit
-`$DSH_HOME/profiles/desktop/cordis.patch.yml`, which Desktop still reads.
-
-## Route A — one-off overlay (`--patch`)
-
-Works against a harness **source checkout** and needs no profile. The row points at the built
-entry by absolute path, so generate the overlay on this machine first:
+| 脚本 | 作用 |
+|---|---|
+| `scripts/dev-patch.mjs` | 生成 `dev/cordis.xiaobo.local.yml`：把构建产物按**本机绝对路径**挂进一次启动的 overlay。路径是本机相关，文件已 gitignore |
+| `scripts/check-manifests.mjs` | Desktop manifest 守卫：`dsh.bundle.patch` 合法、`@deepseek-ai/*` 不得出现在运行时依赖、host peer 必须有精确 devDep 配对、预构建入口在 `files` 里、非 private、精确版本 |
 
 ```sh
-# in dsh-xb-plugins
+pnpm run dev:patch        # = node scripts/dev-patch.mjs
+pnpm run check:manifests  # 已包含在 pnpm run check 里
+```
+
+## 用覆盖层跑 harness（Web/CLI 源码 checkout）
+
+不改 profile，直接挂绝对路径，适合迭代：
+
+```sh
+# 在 dsh-xb-plugins
 pnpm run build
-node scripts/dev-patch.mjs          # writes dev/cordis.xiaobo.local.yml
+pnpm run dev:patch                    # 写出 dev/cordis.xiaobo.local.yml
 
-# in the harness checkout
-pnpm dsh web --patch <path-to>/dsh-xb-plugins/dev/cordis.xiaobo.local.yml
+# 在 harness 源码 checkout
+pnpm dsh web --patch <repo>/dev/cordis.xiaobo.local.yml
 ```
 
-The generated file is machine-specific and git-ignored. Loader rows must resolve; if you point
-at `src/index.ts` instead of `lib/index.js`, the harness loads the TypeScript directly (slower,
-but no build step).
-
-## Route B — install the bundle into a profile (`dsh plugin add`)
-
-Each package declares `dsh.bundle` with its patch file, so `dsh plugin add` links it and appends
-it to the profile's bundle list.
+如果还想同时看部署层（关掉 `harness:identity`）的效果，再叠一层：
 
 ```sh
-# in dsh-xb-plugins
-pnpm install && pnpm run build
-
-# in the harness checkout
-pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/deploy
-pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/xiaobo-persona
-pnpm dsh --profile xb
+pnpm dsh web \
+  --patch <repo>/packages/deploy/cordis.patch.yml \
+  --patch <repo>/dev/cordis.xiaobo.local.yml
 ```
 
-Verify the layers without booting:
+Loader 的 row 只要能被解析即可；把 `name` 指向 `src/index.ts` 而不是 `lib/index.js` 也能跑（harness 会
+直接加载 TypeScript，慢一点，但省掉构建）。
 
-```sh
-pnpm dsh --profile xb --dump-config | grep -A3 'dsh-xb-deploy\|dsh-xb-xiaobo-persona'
-```
+## 为什么 Desktop 用不了覆盖层
 
-Remove them with `pnpm dsh plugin --profile xb remove <name>`.
+Desktop 不读 `--patch`，没有 home patch 层，且 CLI 拒绝管理它的 profile
+（`profile "desktop" is managed exclusively by the Electron application`）。Desktop 的两种路径
+（发布 npm 后从插件窗口安装 / 手写 profile patch 做本机验证）见
+[`../packages/README.md`](../packages/README.md) 第 6 节，限制细节见
+[`../docs/desktop-plugin-limits.md`](../docs/desktop-plugin-limits.md)。
 
-## Where each plugin's config lives
+## 配置放哪一层
 
-| Concern | Layer | Why |
+| 关注点 | 放哪 | 为什么 |
 |---|---|---|
-| Enable/disable the plugin row, locale, section toggles, text overrides | the capability bundle's own row `config` | capability-owned values; the profile patch can still override them |
-| Suppressing `harness:identity`, clearing the `web-app` persona, pinning `toolOrder` | `packages/deploy` (the deployment layer), or the profile's own `cordis.patch.yml` | these override an **in-box row**, so they are composition changes; a patch replaces the row's whole config |
-| DocManager MCP connection | an `@deepseek-ai/dsh-mcp-client` row (planned: `packages/deploy`) | transport config, not a prompt concern |
+| 插件 row 的启停、`locale`、段落开关、文本覆盖 | 能力 bundle 自己的 row `config` | 能力自身的值；profile patch 仍可覆盖 |
+| 关掉 `harness:identity`、清空 web-app persona、固定 `toolOrder` | `packages/deploy`（部署层），或 profile 自己的 `cordis.patch.yml` | 这些是**覆盖 in-box row**，属于组合变更；patch 会整体替换该 row 的 config |
+| DocManager MCP 连接 | `@deepseek-ai/dsh-mcp-client` 的 row（规划中放 `packages/deploy`） | 传输配置，不是提示词问题 |
 
-## Verifying the sections actually landed
+## 验证
 
 ```sh
-pnpm dsh --profile xb --dump-config     # composition check
-pnpm dsh --profile xb                   # boot; the persona applies to every session
+pnpm dsh --profile xb --dump-config     # 组合与层序
+pnpm dsh --profile xb                   # 启动；persona 对每个会话生效
 ```
 
-A faster contract check that needs no harness boot lives in
-`packages/xiaobo-persona/tests/integration.spec.ts`: it mounts the real
-`@deepseek-ai/dsh-system-prompt` registry and asserts the assembly order.
+不需要启动 harness 的更快契约检查在
+`packages/xiaobo-persona/tests/integration.spec.ts`：它挂载**真实的** `@deepseek-ai/dsh-system-prompt`
+registry，断言 section 装配顺序与渲染文本。

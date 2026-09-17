@@ -1,72 +1,69 @@
 # dsh-xb-deploy
 
-The Xiaobo **deployment layer**: a patch-only dsh bundle carrying the configuration that belongs to
-the product composition rather than to any one capability. It ships no code and inserts no rows of
-its own — it only overrides in-box rows.
+小博的**部署层**：一个纯 patch 的 dsh bundle，承载"属于产品组合、而不属于任何单一能力"的配置。
+它不含代码，也不插入自己的 row —— 只覆盖 in-box（内置）row。
 
-## Why a separate bundle
+## 为什么要单独一个 bundle
 
-dsh composes a profile by stacking patch layers. The in-box bundles own their own values
-(`dsh-base` supplies defaults, `dsh-web-app` supplies the browser surface), and a deployment is
-expected to state where it differs. Two rules force the Xiaobo-specific values out of the capability
-plugins:
+dsh 的 profile 是逐层叠加 patch 组装出来的：in-box bundle 各自拥有自己的值（`dsh-base` 给默认值，
+`dsh-web-app` 给浏览器界面的值），部署方负责声明自己不同意的部分。有两条规则把"小博特有的值"
+挤出了能力插件：
 
-1. **A patch replaces the target row's entire config.** Turning off `harness:identity` means
-   restating `personaPrefix` / `personaSuffix` too, which wipes `dsh-web-app`'s generic persona. That
-   is a deployment decision, and doing it inside `dsh-xb-xiaobo-persona` would surprise anyone who
-   installed that plugin to reuse the persona in a profile that already has its own persona.
-2. **Layer order differs per surface.** On Desktop the third-party bundle order is package-name
-   alphabetical, not install order, so which bundle "wins" a row is a composition fact, not a plugin
-   fact.
+1. **patch 会整体替换目标 row 的 config。** 关掉 `harness:identity` 就必须同时重申
+   `personaPrefix` / `personaSuffix`，于是 `dsh-web-app` 写的通用 persona 也被清掉。这是部署决策；
+   放进 `dsh-xb-xiaobo-persona` 会让"只想复用 persona 能力"的人被静默改掉自己已有的 persona。
+2. **层序在不同形态下不一样。** Desktop 上第三方 bundle 的层序是**包名字典序**而不是安装序，
+   所以"哪个 bundle 赢哪一行"是组合事实，不是插件事实。
 
-Keeping the override here means capability bundles stay pure: they register their own sections and
-never patch another bundle's row.
+把覆盖放在这里，能力插件才能保持纯粹：只注册自己的 section，永不 patch 别人的 row。
 
-## What it changes
+## 它改了什么
 
 ```yaml
 - id: system-prompt
   config:
-    includeHarnessIdentity: false   # drop the in-box "powered by DeepSeek Harness" opener
-    personaPrefix: ''               # clear dsh-web-app's generic coding-agent persona
+    includeHarnessIdentity: false   # 去掉内置的 "powered by DeepSeek Harness" 开头
+    personaPrefix: ''               # 清掉 dsh-web-app 的通用 coding-agent persona
     personaSuffix: ''
-    # toolOrder omitted: schema default (lexicographic) applies for now
+    # toolOrder 省略：暂时走 schema 默认（字典序）
 ```
 
-## Install
+## 安装
 
-A Xiaobo deployment lists this bundle **and** the capability bundles it composes, in either order
-(the order is normalised per surface: install order on Web/CLI, package-name order on Desktop).
+一次小博部署会同时列出「本 bundle」与它所组合的能力 bundle；顺序无关（Web/CLI 按安装序，
+Desktop 按包名字典序）。
 
 ```sh
-# Web/CLI source checkout
+# Web/CLI（harness 源码 checkout）
 pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/deploy
 pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/xiaobo-persona
 pnpm dsh --profile xb
 ```
 
 ```text
-# Desktop, from the plugin window
+# Desktop，在插件窗口里逐个添加
 dsh-xb-deploy@0.1.0
 dsh-xb-xiaobo-persona@0.1.0
 ```
 
-## Verify
+其余安装方式（Web/CLI profile、一次性 overlay、Desktop 正式与本机验证路径）见
+[`packages/README.md`](../README.md)。
+
+## 验证
 
 ```sh
 pnpm dsh --profile xb --dump-config | sed -n '/system-prompt/,+5p'
 ```
 
-The rendered system prompt starts with the Xiaobo identity instead of the harness opener; the
-contract test lives in `packages/xiaobo-persona/tests/integration.spec.ts`
-("drops the harness identity when the deployment layer suppresses it").
+渲染出的系统提示词应以小博身份开头，而不是内置 harness 开头句。对应的契约测试在
+`packages/xiaobo-persona/tests/integration.spec.ts`（"drops the harness identity when the
+deployment layer suppresses it"）。
 
-## What goes here next
+## 后续往这里放什么
 
-Deployment-wide values only, never capability behaviour:
+只放部署级的值，不放能力行为：
 
-- `toolOrder` — pin `cad_*` / `python_*` / `mcp__docmanager__*` once those tool bundles land, so the
-  tool catalog is byte-stable across steps.
-- The DocManager `@deepseek-ai/dsh-mcp-client` row, when the deployment wants it on by default.
-- Any `system-prompt` value a white-label build needs (`locale` of the *plugin* stays in the
-  plugin's own row config; anything the registry owns goes here).
+- `toolOrder` —— 等 CAD / Python / DocManager 工具包就位后固定工具顺序，保证工具目录逐 step 字节稳定。
+- DocManager 的 `@deepseek-ai/dsh-mcp-client` row（若部署希望默认开启）。
+- 白标构建需要的任何 `system-prompt` 值（**插件自己的** `locale` 仍留在插件 row 的 config 里；
+  只要归 registry 管的就放这里）。

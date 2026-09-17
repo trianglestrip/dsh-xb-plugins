@@ -67,9 +67,10 @@ them in sync when placement changes, and cross-link rather than duplicating a fa
 
 ## File and comment style
 
-- **English** for identifiers, file names, code comments, commit messages, and `README` bodies.
-- **Chinese** for `docs/*.md` analysis documents and for user-facing prompt payloads (the `zh`
-  fragment locale). Not for code comments.
+- **Chinese by default for every human-facing document**: all `README.md` (root, `packages/`,
+  `packages/*/`, `dev/`), `docs/*.md`, and the `zh` prompt payloads.
+- **English** for identifiers, file names, code comments, JSDoc, commit messages, and YAML/patch
+  comments (`cordis.patch.yml`) — these sit next to code and are read alongside it.
 - One-sentence JSDoc on every exported symbol: what it is, not how it works. Document the *why*
   only where a reader would otherwise make a wrong assumption (e.g. why a section is not a
   context).

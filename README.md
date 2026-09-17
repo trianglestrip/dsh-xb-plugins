@@ -1,78 +1,83 @@
 # dsh-xb-plugins
 
-Xiaobo (小博) plugin collection for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`).
+小博（Xiaobo）的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件集合。
 
-Each package under `packages/` is an independently installable **dsh bundle**: it ships a
-`cordis.patch.yml` layer and a compiled plugin entry, and declares `dsh.bundle` in its
-`package.json`. Nothing here is a fork of the harness; every package consumes the published
-`@deepseek-ai/*` packages as peers and is loaded by the host harness.
+`packages/` 下每个包都是一个**可独立安装的 dsh bundle**：随包交付一个 `cordis.patch.yml` 配置层与
+编译好的插件入口，并在 `package.json` 里声明 `dsh.bundle`。本仓库不是 harness 的 fork —— 每个包都以
+peer 方式消费已发布的 `@deepseek-ai/*` 包，由宿主 harness 自己加载运行。
 
-## Packages
+> 完整的插件清单、四种安装方式（Web/CLI profile、一次性 overlay、Desktop、测试内挂载）与配置速查，
+> 见 [`packages/README.md`](packages/README.md)。
 
-| Package | Registers | Status |
+## 插件
+
+| 包 | 注册内容 | 状态 |
 |---|---|---|
-| [`dsh-xb-deploy`](packages/deploy) | Deployment-wide harness policy: drops the in-box harness identity and the generic `dsh-web-app` persona; later owns `toolOrder` and the DocManager MCP row | v0.1.0 |
-| [`dsh-xb-xiaobo-persona`](packages/xiaobo-persona) | Xiaobo identity + domain/safety/interaction policy prompt sections | v0.1.0 |
-| *(next)* `dsh-xb-docmanager` | DocManager knowledge scope as runtime context | planned |
+| [`dsh-xb-deploy`](packages/deploy) | 部署层：关掉内置 `harness:identity`、清空 `dsh-web-app` 的通用 persona；后续承载 `toolOrder` 与 DocManager MCP 行 | v0.1.0 |
+| [`dsh-xb-xiaobo-persona`](packages/xiaobo-persona) | 小博身份 + 接口约束 / 安全红线 / 交互规范 / 客观性等提示词 section | v0.1.0 |
+| *(规划中)* `dsh-xb-docmanager` | 把 DocManager 可见知识信源注册为运行时 context | — |
 
-## Design docs
+## 设计文档
 
-Background and placement rationale behind the packages, written before the code:
+先有结论、后有代码，放置理由都在这里：
 
-- [`docs/xiaobo-prompt.md`](docs/xiaobo-prompt.md) — the Xiaobo prompt inventory, the fragment plan,
-  and where each fragment lands in the DeepSeek Harness turn flow (`systemPrompt.section()` orders).
-- [`docs/docmanager.md`](docs/docmanager.md) — the DocManager refactor: what stays (local knowledge
-  data), what moves (MCP tool surface + `MCP_SERVERS` section), and what goes away (the second
-  system prompt and the forced first-turn tool choice).
+- [`docs/xiaobo-prompt.md`](docs/xiaobo-prompt.md) —— 小博提示词清点（改动提交、12 个被改文件、逐字原文、
+  被删的 `xiaobo.txt` 中文人设）、整理方案，以及每段在 DeepSeek Harness 回合流里落到哪个
+  `systemPrompt.section()` order。
+- [`docs/docmanager.md`](docs/docmanager.md) —— DocManager 改造：什么保留（本地知识数据面）、什么上移
+  （MCP 工具面 + `MCP_SERVERS` 段）、什么删除（第二套 system prompt 与首轮强制 tool_choice）。
+- [`docs/desktop-plugin-limits.md`](docs/desktop-plugin-limits.md) —— Desktop（Electron）相对 Web/CLI 的
+  插件加载限制对照。
 
-## Toolchain
+## 工具链
 
-| Tool | Version | Source |
+| 工具 | 版本 | 来源 |
 |---|---|---|
-| Node.js | ^22.19.0 \|\| >=24 | host requirement of the harness |
-| pnpm | 12.3.4 | `packageManager` in the root manifest |
-| TypeScript | ^6.0.3 | `catalog:` in `pnpm-workspace.yaml` |
-| tsdown | ^0.22.2 | `catalog:` |
-| vitest | ^4.1.8 | `catalog:` |
+| Node.js | ^22.19.0 \|\| >=24 | harness 的宿主要求 |
+| pnpm | 12.3.4 | 根 `package.json` 的 `packageManager` |
+| TypeScript | ^6.0.3 | `pnpm-workspace.yaml` 的 `catalog:` |
+| tsdown | ^0.22.2 | 同上 |
+| vitest | ^4.1.8 | 同上 |
 
-Version-sensitive dependencies (the harness packages) are pinned to the exact release the
-target harness build uses, so type checking and runtime agree.
+对版本敏感的依赖（harness 包）与目标 harness 构建**精确对齐**：`peerDependencies` 给范围，
+`devDependencies` 给同版本精确值，保证类型检查与运行时一致。
 
-## Commands
+## 常用命令
 
 ```sh
-pnpm install          # link workspace packages and install peers
-pnpm run check        # typecheck + build + test, in that order
-pnpm run typecheck    # tsc --noEmit for every package
+pnpm install          # 链接 workspace 包并安装 peer
+pnpm run check        # manifest 守卫 → typecheck → build → test
+pnpm run typecheck    # 每个包 tsc --noEmit
 pnpm run build        # tsdown → packages/*/lib/{index.js,index.d.ts}
 pnpm run test         # vitest run
 ```
 
-`lib/` is generated and git-ignored; build before installing a package into a dsh profile.
+`lib/` 是生成物且被 git 忽略：**装进 dsh profile 之前必须先构建**。
 
-## Load into a harness
+## 装进 harness
 
-Both routes are documented in [`dev/README.md`](dev/README.md). The short version, from a
-harness source checkout:
+最短路径（harness 源码 checkout 里执行）：
 
 ```sh
-# 1. build this repo once
+# 1. 先构建本仓库
 pnpm install && pnpm run build
 
-# 2. install the bundle into a profile and boot it
+# 2. 把两个 bundle 装进 profile 并启动
+pnpm dsh plugin --profile xb add ../../dsh-xb-plugins/packages/deploy
 pnpm dsh plugin --profile xb add ../../dsh-xb-plugins/packages/xiaobo-persona
 pnpm dsh --profile xb
 ```
 
-## Add a plugin
+Desktop（Electron）只能从 npm registry 按精确版本安装，步骤见
+[`packages/README.md`](packages/README.md) 第 6 节。
 
-1. `mkdir packages/<name>` and copy the shape of `packages/xiaobo-persona`
-   (`package.json` with `dsh.bundle`, `cordis.patch.yml`, `tsconfig.json`,
-   `tsdown.config.ts`, `src/index.ts`, `tests/`).
-2. Add the harness packages you consume as `peerDependencies`, and the exact same
-   versions as `devDependencies` for type checking.
-3. Keep `deps.neverBundle: [/^@deepseek-ai\//]` so the host supplies its own runtime.
-4. `pnpm run check`.
+## 新增插件
 
-See [`AGENTS.md`](AGENTS.md) for the conventions this repo enforces (English code and
-comments, plugin shape, config over hardcoding).
+1. `mkdir packages/<name>`，照抄 `packages/xiaobo-persona` 的形状（`package.json` 带 `dsh.bundle`、
+   `cordis.patch.yml`、`tsconfig.json`、`tsdown.config.ts`、`src/index.ts`、`tests/`）。
+2. 把用到的 harness 包写进 `peerDependencies`，并把**同一版本**写进 `devDependencies` 供类型检查。
+3. `tsdown.config.ts` 保留 `deps.neverBundle: [/^@deepseek-ai\//]`，让宿主提供自己的运行时实例。
+4. `pnpm run check`。
+
+仓库强制的约定（插件形态、能力插件不得 patch 别人 row、Desktop manifest 约束等）见
+[`AGENTS.md`](AGENTS.md)。
