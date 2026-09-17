@@ -2,20 +2,34 @@
 
 小博（Xiaobo）的 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件集合。
 
-`packages/` 下每个包都是一个**可独立安装的 dsh bundle**：随包交付一个 `cordis.patch.yml` 配置层与
-编译好的插件入口，并在 `package.json` 里声明 `dsh.bundle`。本仓库不是 harness 的 fork —— 每个包都以
+## 仓库结构
+
+```
+dsh-xb-plugins/
+├─ packages/            ← 只放插件：每个子目录一个独立可安装的 bundle
+│  └─ xiaobo-persona/        小博身份与工程规范提示词（有代码）
+├─ deploy/              ← 部署层：纯 patch、零代码，不是插件
+├─ docs/                ← 中文设计/分析文档 + 插件索引
+├─ dev/                 ← 开发脚本说明 + 本机生成的 overlay（gitignore）
+└─ scripts/             ← check-manifests / dev-patch / desktop-snippet
+```
+
+`packages/` 下每个插件都随包交付一个 `cordis.patch.yml` 配置层与编译好的插件入口，并在
+`package.json` 里声明 `dsh.bundle`；`deploy/` 只交付前者。本仓库不是 harness 的 fork —— 每个包都以
 peer 方式消费已发布的 `@deepseek-ai/*` 包，由宿主 harness 自己加载运行。
 
 > 完整的插件清单、四种安装方式（Web/CLI profile、一次性 overlay、Desktop、测试内挂载）与配置速查，
-> 见 [`packages/README.md`](packages/README.md)。
+> 见 [`docs/plugins.md`](docs/plugins.md)。
 
-## 插件
+## 插件与部署层
 
-| 包 | 注册内容 | 状态 |
-|---|---|---|
-| [`dsh-xb-deploy`](packages/deploy) | 部署层：关掉内置 `harness:identity`、清空 `dsh-web-app` 的通用 persona；后续承载 `toolOrder` 与 DocManager MCP 行 | v0.1.0 |
-| [`dsh-xb-xiaobo-persona`](packages/xiaobo-persona) | 小博身份 + 接口约束 / 安全红线 / 交互规范 / 客观性等提示词 section | v0.1.0 |
-| *(规划中)* `dsh-xb-docmanager` | 把 DocManager 可见知识信源注册为运行时 context | — |
+| 产物 | 类型 | 注册内容 | 状态 |
+|---|---|---|---|
+| [`packages/xiaobo-persona`](packages/xiaobo-persona) | **插件**（有代码） | 小博身份 + 接口约束 / 安全红线 / 交互规范 / 客观性等提示词 section | v0.1.0 |
+| [`deploy`](deploy) | **部署层**（纯 patch，非插件） | 关掉内置 `harness:identity`、清空 `dsh-web-app` 的通用 persona；后续承载 `toolOrder` 与 DocManager MCP 行 | v0.1.0 |
+| *(规划中)* `packages/xiaobo-docmanager` | 插件 | 把 DocManager 可见知识信源注册为运行时 context | — |
+
+分界线：**能力进 `packages/`，"产品如何组合"进 `deploy/`**。能力插件绝不 patch 别人的 row。
 
 ## 设计文档
 
@@ -63,13 +77,13 @@ pnpm run test         # vitest run
 pnpm install && pnpm run build
 
 # 2. 把两个 bundle 装进 profile 并启动
-pnpm dsh plugin --profile xb add ../../dsh-xb-plugins/packages/deploy
+pnpm dsh plugin --profile xb add ../../dsh-xb-plugins/deploy
 pnpm dsh plugin --profile xb add ../../dsh-xb-plugins/packages/xiaobo-persona
 pnpm dsh --profile xb
 ```
 
 Desktop（Electron）只能从 npm registry 按精确版本安装，步骤见
-[`packages/README.md`](packages/README.md) 第 6 节。
+[`docs/plugins.md`](docs/plugins.md) 第 6 节。
 
 ## 新增插件
 
@@ -79,5 +93,6 @@ Desktop（Electron）只能从 npm registry 按精确版本安装，步骤见
 3. `tsdown.config.ts` 保留 `deps.neverBundle: [/^@deepseek-ai\//]`，让宿主提供自己的运行时实例。
 4. `pnpm run check`。
 
-仓库强制的约定（插件形态、能力插件不得 patch 别人 row、Desktop manifest 约束等）见
-[`AGENTS.md`](AGENTS.md)。
+若新东西是“覆盖 in-box row”的组合值而不是能力，不要放 `packages/`，放 [`deploy/`](deploy)（它
+同样是 workspace 成员，但不上 `packages/` 的插件清单）。仓库强制的约定（插件形态、能力插件不得 patch
+别人 row、Desktop manifest 约束等）见 [`AGENTS.md`](AGENTS.md)。

@@ -1,8 +1,9 @@
 # 插件索引与使用方法
 
-本目录每个子目录都是**一个独立的 dsh bundle**（DeepSeek Harness 插件包）：可以单独安装、单独发版、
-单独启用/禁用，彼此不构成依赖关系。每个包自己的 `README.md` 讲该包的能力与 config 细节，本文件讲
-**有哪些插件、怎么装、装到哪**。
+本文件是**插件索引与使用方法**。
+
+- [`packages/`](../packages)：**只放插件**。每个子目录是一个独立的 dsh bundle（DeepSeek Harness 插件包），可单独安装、单独发版、单独启用/禁用，彼此不构成依赖。每个插件自己的 `README.md` 讲它的能力与 config 细节。
+- [`deploy/`](../deploy)：**不是插件**。纯 patch、零代码的部署层，集中放「覆盖 in-box row」的组合值。
 
 ---
 
@@ -10,8 +11,8 @@
 
 | 包 | 类型 | 作用 | 产物 / 落点 |
 |---|---|---|---|
-| [`deploy`](deploy) | **部署层**（纯 patch，零代码） | 覆盖 in-box row：关掉 `harness:identity`、清空 `dsh-web-app` 的通用 persona；后续承载 `toolOrder` 固定与 DocManager MCP 行 | 改 `system-prompt` 行 |
-| [`xiaobo-persona`](xiaobo-persona) | **能力 bundle**（有代码） | 小博身份、接口调用约束、安全红线、交互规范、专业客观性、产品帮助 | 6 个 `systemPrompt.section()`：order 0 / 400 / 410 / 420 / 430 / 10200 |
+| [`deploy`](../deploy) | **部署层**（纯 patch，零代码，不是插件） | 覆盖 in-box row：关掉 `harness:identity`、清空 `dsh-web-app` 的通用 persona；后续承载 `toolOrder` 固定与 DocManager MCP 行 | 改 `system-prompt` 行 |
+| [`xiaobo-persona`](../packages/xiaobo-persona) | **能力 bundle**（有代码） | 小博身份、接口调用约束、安全红线、交互规范、专业客观性、产品帮助 | 6 个 `systemPrompt.section()`：order 0 / 400 / 410 / 420 / 430 / 10200 |
 
 规划中：`xiaobo-docmanager`（把 DocManager 可见知识信源注册为运行时 context）。
 
@@ -47,7 +48,7 @@ bundle 列表。
 
 ```sh
 # 在 harness 源码 checkout 里
-pnpm dsh plugin --profile xb add <repo>/packages/deploy
+pnpm dsh plugin --profile xb add <repo>/deploy
 pnpm dsh plugin --profile xb add <repo>/packages/xiaobo-persona
 pnpm dsh --profile xb
 ```
@@ -75,7 +76,7 @@ pnpm dsh web --patch <repo>/dev/cordis.xiaobo.local.yml
 
 ```sh
 pnpm dsh web \
-  --patch <repo>/packages/deploy/cordis.patch.yml \
+  --patch <repo>/deploy/cordis.patch.yml \
   --patch <repo>/dev/cordis.xiaobo.local.yml
 ```
 
@@ -156,7 +157,7 @@ dsh-xb-xiaobo-persona@0.1.0
 pnpm --filter dsh-xb-xiaobo-persona run test
 ```
 
-契约测试在 [`xiaobo-persona/tests/integration.spec.ts`](xiaobo-persona/tests/integration.spec.ts)，
+契约测试在 [`packages/xiaobo-persona/tests/integration.spec.ts`](../packages/xiaobo-persona/tests/integration.spec.ts)，
 覆盖：默认装配顺序、与 registry 保留名不冲突、locale 与 include 开关、部署层关掉 `harness:identity`。
 
 ---

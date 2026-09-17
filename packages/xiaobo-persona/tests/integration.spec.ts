@@ -83,7 +83,7 @@ describe('xiaobo-persona against the real registry', () => {
     const ctx = new Context()
     try {
       // Exactly the `system-prompt` row shape produced by
-      // packages/deploy/cordis.patch.yml, which owns this deployment decision.
+      // deploy/cordis.patch.yml, which owns this deployment decision.
       await ctx.plugin(SystemPrompt, {
         includeHarnessIdentity: false,
         personaPrefix: '',

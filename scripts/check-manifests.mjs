@@ -25,6 +25,14 @@ const packagesDir = join(repoRoot, 'packages')
 const HOST_SCOPE = '@deepseek-ai/'
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u
 
+/** Workspace package directories: one plugin per `packages/*`, plus the deployment layer. */
+const packageDirs = [
+  ...readdirSync(packagesDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => ({ label: entry.name, dir: join(packagesDir, entry.name) })),
+  { label: 'deploy', dir: join(repoRoot, 'deploy') },
+]
+
 /** @type {string[]} */
 const failures = []
 
@@ -45,16 +53,14 @@ function stringMap(value) {
   return /** @type {Record<string, string>} */ (value)
 }
 
-for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-  if (!entry.isDirectory()) continue
-  const packageDir = join(packagesDir, entry.name)
+for (const { label: fallbackLabel, dir: packageDir } of packageDirs) {
   const manifestPath = join(packageDir, 'package.json')
   if (!existsSync(manifestPath)) {
-    fail(`${entry.name}: missing package.json`)
+    fail(`${fallbackLabel}: missing package.json`)
     continue
   }
   const manifest = readJson(manifestPath)
-  const label = typeof manifest.name === 'string' ? manifest.name : entry.name
+  const label = typeof manifest.name === 'string' ? manifest.name : fallbackLabel
 
   if (manifest.private === true) fail(`${label}: must not be private; Desktop installs it from the registry`)
   if (typeof manifest.version !== 'string' || !EXACT_VERSION.test(manifest.version)) {

@@ -51,16 +51,16 @@ pnpm dsh --profile xb
 ```
 
 或用一次性 overlay 启动源码 checkout —— 见 [`../../dev/README.md`](../../dev/README.md)；
-Desktop 的两种路径见 [`../README.md`](../README.md) 第 6 节。
+Desktop 的两种路径见 [`docs/plugins.md`](../../docs/plugins.md) 第 6 节。
 
 ## 部署注意：内置的 harness 身份行
 
 `dsh-system-prompt` 会在 order −1000 自带一段 `harness:identity`
 （`"You are an AI agent powered by DeepSeek Harness."`），除非那一行把它关掉。白标的小博部署在
-[`dsh-xb-deploy`](../deploy)（部署层，所有"覆盖 in-box row"的唯一住所）里关：
+[`dsh-xb-deploy`](../../deploy)（部署层，所有"覆盖 in-box row"的唯一住所）里关：
 
 ```yaml
-# packages/deploy/cordis.patch.yml
+# deploy/cordis.patch.yml
 - id: system-prompt
   config:
     includeHarnessIdentity: false
@@ -100,7 +100,7 @@ Desktop 特有的后果：
 
 Desktop 上没有 config 编辑器也没有 overlay，所以带内关掉 `harness:identity` 的唯一方式是让某个
 bundle 覆盖 `system-prompt` 行 —— 而 patch 会整体替换该行 config（含 `dsh-web-app` 的 persona 值）。
-那是 [`dsh-xb-deploy`](../deploy) 的职责，不是本包的。
+那是 [`dsh-xb-deploy`](../../deploy) 的职责，不是本包的。
 
 ## 本包不做什么
 

@@ -35,7 +35,7 @@ Desktop 按包名字典序）。
 
 ```sh
 # Web/CLI（harness 源码 checkout）
-pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/deploy
+pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/deploy
 pnpm dsh plugin --profile xb add <path-to>/dsh-xb-plugins/packages/xiaobo-persona
 pnpm dsh --profile xb
 ```
@@ -47,7 +47,7 @@ dsh-xb-xiaobo-persona@0.1.0
 ```
 
 其余安装方式（Web/CLI profile、一次性 overlay、Desktop 正式与本机验证路径）见
-[`packages/README.md`](../README.md)。
+[`docs/plugins.md`](../docs/plugins.md)。
 
 ## 验证
 

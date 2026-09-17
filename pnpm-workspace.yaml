@@ -1,7 +1,11 @@
 packages:
+  # Plugin bundles: one independent, separately installable plugin per directory.
   - packages/*
+  # The deployment layer: a patch-only bundle that composes the product and is
+  # deliberately NOT a plugin. See deploy/README.md.
+  - deploy
 
-# Single source of truth for the toolchain shared by every plugin package.
+# Single source of truth for the toolchain shared by every package.
 catalog:
   '@types/node': ^22.18.0
   tsdown: ^0.22.2

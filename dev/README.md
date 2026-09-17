@@ -1,7 +1,7 @@
 # 开发脚本与本地覆盖层
 
 本目录只讲**开发期**怎么把尚未发布的插件临时挂进 harness。完整的安装方式（Web/CLI profile、
-一次性 overlay、Desktop、测试内挂载）与配置速查见 [`../packages/README.md`](../packages/README.md)。
+一次性 overlay、Desktop、测试内挂载）与配置速查见 [`../docs/plugins.md`](../docs/plugins.md)。
 
 ## 仓库脚本
 
@@ -32,7 +32,7 @@ pnpm dsh web --patch <repo>/dev/cordis.xiaobo.local.yml
 
 ```sh
 pnpm dsh web \
-  --patch <repo>/packages/deploy/cordis.patch.yml \
+  --patch <repo>/deploy/cordis.patch.yml \
   --patch <repo>/dev/cordis.xiaobo.local.yml
 ```
 
@@ -44,7 +44,7 @@ Loader 的 row 只要能被解析即可；把 `name` 指向 `src/index.ts` 而�
 Desktop 不读 `--patch`，没有 home patch 层，且 CLI 拒绝管理它的 profile
 （`profile "desktop" is managed exclusively by the Electron application`）。Desktop 的两种路径
 （发布 npm 后从插件窗口安装 / 手写 profile patch 做本机验证）见
-[`../packages/README.md`](../packages/README.md) 第 6 节，限制细节见
+[`../docs/plugins.md`](../docs/plugins.md) 第 6 节，限制细节见
 [`../docs/desktop-plugin-limits.md`](../docs/desktop-plugin-limits.md)。
 
 ## 配置放哪一层
@@ -52,8 +52,8 @@ Desktop 不读 `--patch`，没有 home patch 层，且 CLI 拒绝管理它的 pr
 | 关注点 | 放哪 | 为什么 |
 |---|---|---|
 | 插件 row 的启停、`locale`、段落开关、文本覆盖 | 能力 bundle 自己的 row `config` | 能力自身的值；profile patch 仍可覆盖 |
-| 关掉 `harness:identity`、清空 web-app persona、固定 `toolOrder` | `packages/deploy`（部署层），或 profile 自己的 `cordis.patch.yml` | 这些是**覆盖 in-box row**，属于组合变更；patch 会整体替换该 row 的 config |
-| DocManager MCP 连接 | `@deepseek-ai/dsh-mcp-client` 的 row（规划中放 `packages/deploy`） | 传输配置，不是提示词问题 |
+| 关掉 `harness:identity`、清空 web-app persona、固定 `toolOrder` | `deploy`（部署层），或 profile 自己的 `cordis.patch.yml` | 这些是**覆盖 in-box row**，属于组合变更；patch 会整体替换该 row 的 config |
+| DocManager MCP 连接 | `@deepseek-ai/dsh-mcp-client` 的 row（规划中放 `deploy`） | 传输配置，不是提示词问题 |
 
 ## 验证
 
