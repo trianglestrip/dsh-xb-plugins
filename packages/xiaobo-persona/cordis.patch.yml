@@ -1,0 +1,17 @@
+# The layer this bundle contributes when a profile lists `dsh-xb-xiaobo-persona`.
+#
+# Mounting the row adds the Xiaobo prompt sections to every session in the
+# profile. Tune the text and placement under the `config` key.
+- insert:
+    - id: xiaobo-persona
+      name: dsh-xb-xiaobo-persona
+      # config:
+      #   locale: en            # en (default) | zh
+      #   includeIdentity: true
+      #   includeDomainPolicy: true
+      #   includeSafetyRedlines: true
+      #   includeInteractionNorms: true
+      #   includeObjectivity: true
+      #   includeProductHelp: true
+      #   interpolate: true     # registry default; set false for literal {{...}}
+      #   identity: ''          # overrides the shipped fragment when non-empty

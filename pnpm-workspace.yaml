@@ -1,0 +1,14 @@
+packages:
+  - packages/*
+
+# Single source of truth for the toolchain shared by every plugin package.
+catalog:
+  '@types/node': ^22.18.0
+  tsdown: ^0.22.2
+  typescript: ^6.0.3
+  vitest: ^4.1.8
+
+# pnpm 10+ blocks dependency build scripts by default. Only allow the ones this
+# repo genuinely needs; everything else is denied.
+allowBuilds:
+  esbuild: true

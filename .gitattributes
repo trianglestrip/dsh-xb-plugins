@@ -1,0 +1,5 @@
+# Canonical text form is LF on every host, so generated output and diffs agree
+# between Windows development and Linux CI. Matches the upstream harness repo.
+* text=auto eol=lf
+
+*.pdf binary

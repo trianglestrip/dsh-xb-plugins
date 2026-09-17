@@ -1,0 +1,26 @@
+{
+  // Shared compiler contract for every plugin package. Each package's own
+  // tsconfig extends this and declares its own `include`/`rootDir`.
+  //
+  // Type checking is `tsc --noEmit`; emitting is tsdown's job (it bundles each
+  // package into a single `lib/index.js` plus `lib/index.d.ts`).
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true
+  }
+}
