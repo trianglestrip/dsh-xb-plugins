@@ -15,6 +15,7 @@
     "clean": "pnpm -r run clean",
     "dev:patch": "node scripts/dev-patch.mjs",
     "dev:desktop-snippet": "node scripts/desktop-snippet.mjs",
+    "dev:agent-preset": "node scripts/gen-agent-preset.mjs",
     "check:manifests": "node scripts/check-manifests.mjs",
     "check": "pnpm run check:manifests && pnpm run typecheck && pnpm run build && pnpm run test"
   },

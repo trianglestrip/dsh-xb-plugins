@@ -8,11 +8,15 @@
 | 脚本 | 作用 |
 |---|---|
 | `scripts/dev-patch.mjs` | 生成 `dev/cordis.xiaobo.local.yml`：把构建产物按**本机绝对路径**挂进一次启动的 overlay。路径是本机相关，文件已 gitignore |
+| `scripts/desktop-snippet.mjs` | 生成 `dev/desktop-profile-patch.snippet.yml`：Desktop profile patch 的可粘贴片段（绝对路径，已 gitignore） |
+| `scripts/gen-agent-preset.mjs` | 把提示词投影成 Desktop 的 **agent preset**（`$DSH_HOME/.agent-presets/xiaobo/`）：不用发布、不用 registry、不用绝对路径。文本取自 `packages/xiaobo-persona`，并在写入前自检 YAML 与每行 `name` 可解析 |
 | `scripts/check-manifests.mjs` | Desktop manifest 守卫：`dsh.bundle.patch` 合法、`@deepseek-ai/*` 不得出现在运行时依赖、host peer 必须有精确 devDep 配对、预构建入口在 `files` 里、非 private、精确版本 |
 
 ```sh
-pnpm run dev:patch        # = node scripts/dev-patch.mjs
-pnpm run check:manifests  # 已包含在 pnpm run check 里
+pnpm run dev:patch            # = node scripts/dev-patch.mjs
+pnpm run dev:desktop-snippet  # = node scripts/desktop-snippet.mjs
+pnpm run dev:agent-preset     # = node scripts/gen-agent-preset.mjs
+pnpm run check:manifests      # 已包含在 pnpm run check 里
 ```
 
 ## 用覆盖层跑 harness（Web/CLI 源码 checkout）

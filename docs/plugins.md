@@ -95,6 +95,42 @@ Desktop 的 profile 由 Electron 独占，安装能力被收窄成结构化操�
 - 没有 `--patch` 覆盖层、没有 home patch 层、没有 HMR，改动 = 重启 Host。
 - 校验失败**不回滚**，需要手动禁用/修复/重置 profile。
 
+### C0 推荐：不发布也能注入 —— 把提示词做成 agent preset
+
+Desktop 只对**插件**要求 registry 包，而 **agent preset 只是一个 YAML 目录**
+（`$DSH_HOME/.agent-presets/<id>/`），roster 默认就扫它（`includeUserRoot: true`），
+不需要安装、不需要发布、不需要 registry，也不需要任何绝对路径。
+
+提示词本来就是数据，所以最省事的注入方式是**把它当数据交付**：
+
+```sh
+pnpm run build            # 文本来自 packages/xiaobo-persona 的片段
+pnpm run dev:agent-preset # 生成 ~/.dsh/.agent-presets/xiaobo/
+```
+
+生成物 = 上游 `standard` 组合 + 替换后的 `persona` row（其余 17 行逐字保留；实测 diff 只有一个 hunk），
+文本直接取自插件的 `fragments.ts`，所以 preset 与插件**永远不会说法不一致**。
+重启 Desktop 后，在**模式选择器**里选「小博」即可；要设成默认就在 profile patch 里加一行：
+
+```yaml
+- id: agent-presets
+  config:
+    default: xiaobo
+```
+
+| 项 | 实际情况 |
+|---|---|
+| 需要 registry / publish | ❌ 都不需要 |
+| 需要绝对路径 | ❌ 所有 row 都指向 runtime 自带的包 |
+| 插件窗口可见 | ❌（preset 不是插件；它在**模式选择器**里） |
+| 覆盖 `standard` 的 persona | ✅（preset 自己挂 `dsh-persona`，agent scope 覆盖全局） |
+| dsh 升级后漂移 | ❌ 重跑生成脚本即可（它从运行时读上游 `standard`） |
+| 多段 section 顺序（400/410/420/430） | 合并为一段 persona（order 0），仍在所有工具指导之前 |
+| 局限 | 只能带**文本**。工具行、MCP server 行仍需插件/bundle 或 profile patch |
+
+> 生成脚本会自检：用 runtime 自带的 `js-yaml` + `entryListSchema` 解析（与 roster 同一个解析器），
+> 并逐行确认每个 `name` 在 runtime 里可解析；自检不过就不写文件。
+
 ### C1 正式路径（需要先发布到 npm）
 
 Desktop 只认 registry，所以先发布这两个包（精确版本，`0.1.0`）：
@@ -115,6 +151,24 @@ dsh-xb-xiaobo-persona@0.1.0
 - 两个包都是直接依赖 → 都会成为 bundle 层，层序为包名字典序（`dsh-xb-deploy` 在前）。
 - 更新必须显式给目标版本（UI 里手动输入），没有 "update to latest"。
 - 发布后名称要固定：Desktop 的 profile 依赖精确版本，改名等于换包。
+
+Desktop 版的 `dsh plugin add` 是 `<runtime>/desktop-plugins.js`（应用自己 spawn 的就是它）：
+
+```sh
+RT=".../desktop-runtime"
+"$RT/node/node.exe" "$RT/desktop-plugins.js" \
+  --node "$RT/node/node.exe" --pnpm "$RT/pnpm/bin/pnpm.mjs" --dsh "$RT/dsh" \
+  add dsh-xb-xiaobo-persona@0.1.0
+```
+
+命令集：`list | add <spec> | remove <name> | update <name> <version> | toggle <name> <on|off> |
+disable-all | reset`。它走完整事务（链接宿主包 → 校验依赖图 → 写 `dsh.profile.bundles`），
+所以不必开插件窗口。
+
+**与「不发布」如何兼容**：包名**不需要 scope** —— 只要发到公共 npm，`add` 直接可用。scope 只在
+**本地/私有 registry** 时才需要，因为 Desktop 把默认 registry 硬编码成 `registry.npmjs.org`，而 pnpm 的
+`@scope:registry` 能覆盖它（实测：在 `$DSH_HOME/desktop/pnpm/config/npmrc` 写
+`@xb:registry=http://127.0.0.1:4873/` 后，内置 pnpm 会走本地，未加 scope 的包仍走公网）。
 
 ### C2 本地验证路径（不发布，直接写 profile patch）
 
@@ -148,6 +202,15 @@ dsh-xb-xiaobo-persona@0.1.0
 | profile 重置 | 会被删除（重置清空 profile 目录，除 lock 外） |
 | 运行时依赖 | 插件只 import `@deepseek-ai/schemastery`，需要它从插件目录可解析 —— `<repo>/packages/xiaobo-persona/node_modules` 里已有（`pnpm install` 装的 3.18.2，与 Desktop 内置同版本） |
 | 定位 | **本机验证 / 内测用途，不是发布路径**。要交付给用户请在 C1 发布 |
+
+### C3 已实测排除的路
+
+| 路线 | 结果 |
+|---|---|
+| `pnpm pack` + 内置 pnpm `add <tarball>` | ❌ 能装成真目录，但 profile manifest 会写 `file:...tgz`，而 `projectManifest()` 要求依赖是**精确 registry 版本** → 报 `plugin dependencies must use exact registry versions`；`reconcileProfile()` 会调它 → **Desktop 启动即失败** |
+| 把默认 registry 指向本地 verdaccio | ❌ `--config.registry=https://registry.npmjs.org/` 硬编码，且 `NPM_CONFIG_REGISTRY` 被显式设置 |
+| `link:` / `file:` / git / tarball 通过插件窗口 | ❌ `packageNameFromSpec` 直接拒绝 |
+| `--patch` overlay / home patch 层 | ❌ Desktop 不读 |
 
 ## 7. 用法 D：测试里以编程方式挂载
 
